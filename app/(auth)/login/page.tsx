@@ -35,7 +35,7 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <span className="text-5xl">🏸</span>
           <h1 className="mt-4 text-2xl font-bold text-gray-900">Welcome back</h1>
-          <p className="mt-1 text-gray-500 text-sm">Sign in to your CourtBook account</p>
+          <p className="mt-1 text-gray-500 text-sm">Sign in to your Badminto account</p>
         </div>
 
         <form onSubmit={handleLogin} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 space-y-5">

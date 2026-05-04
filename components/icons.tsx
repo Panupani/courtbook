@@ -58,7 +58,7 @@ export {
 } from 'lucide-react'
 
 // ── Logo mark ────────────────────────────────────────────────────────
-// Custom shuttlecock-inspired SVG for the CourtBook brand
+// Custom shuttlecock-inspired SVG for the Badminto brand
 export function ShuttlecockIcon({ className = 'w-5 h-5' }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">

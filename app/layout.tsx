@@ -11,7 +11,7 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'CourtBook — Badminton Court Booking',
+  title: 'Badminto — Badminton Court Booking',
   description: 'Book badminton courts online. Browse venues, pick your time slot, and confirm instantly.',
 }
 

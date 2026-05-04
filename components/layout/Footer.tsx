@@ -14,7 +14,7 @@ export default function Footer() {
                 <ShuttlecockIcon className="w-4 h-4" />
               </div>
               <span className="font-bold text-lg text-white tracking-tight">
-                Court<span className="text-green-500">Book</span>
+                Badm<span className="text-green-500">into</span>
               </span>
             </div>
             <p className="text-sm text-zinc-500 max-w-xs leading-relaxed">
@@ -32,7 +32,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-10 pt-6 border-t border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-600">
-          <p>© {new Date().getFullYear()} CourtBook. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Badminto. All rights reserved.</p>
           <p>Built for players, by players</p>
         </div>
       </div>

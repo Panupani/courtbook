@@ -63,7 +63,7 @@ export default function Navbar() {
               <ShuttlecockIcon className="w-4 h-4" />
             </div>
             <span className="font-bold text-[17px] tracking-tight text-zinc-900">
-              Court<span className="text-green-600">Book</span>
+              Badm<span className="text-green-600">into</span>
             </span>
           </Link>
 

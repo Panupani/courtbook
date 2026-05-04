@@ -63,7 +63,7 @@ const FEATURES = [
 ]
 
 const TESTIMONIALS = [
-  { name: 'Krit S.',    role: 'Venue Owner',    text: 'Bookings doubled after switching to CourtBook. The walk-in feature saves us 30 min a day.' },
+  { name: 'Krit S.',    role: 'Venue Owner',    text: 'Bookings doubled after switching to Badminto. The walk-in feature saves us 30 min a day.' },
   { name: 'Nong P.',   role: 'Regular Player',  text: 'Super easy to use. I book my court in under a minute every week.' },
   { name: 'Aom T.',    role: 'Club Manager',    text: 'The AI payment verification is a game changer. No more checking slips manually.' },
   { name: 'James L.',  role: 'Sports Complex',  text: 'Revenue tracking and the platform fee system are exactly what we needed.' },
