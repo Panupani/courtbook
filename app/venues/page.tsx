@@ -1,0 +1,60 @@
+export const dynamic = 'force-dynamic'
+
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server'
+import type { Venue } from '@/lib/types'
+
+export default async function VenuesPage() {
+  const supabase = await createClient()
+  const { data: venues } = await supabase
+    .from('venues')
+    .select('*')
+    .eq('is_active', true)
+    .order('name')
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-12">
+      <div className="mb-10">
+        <h1 className="text-3xl font-bold text-gray-900">All Venues</h1>
+        <p className="mt-2 text-gray-500">Find your nearest badminton court and book a slot</p>
+      </div>
+
+      {!venues || venues.length === 0 ? (
+        <div className="text-center py-24 text-gray-400">
+          <span className="text-6xl block mb-4">🏸</span>
+          <p className="text-lg">No venues available yet. Check back soon!</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {(venues as Venue[]).map(venue => (
+            <Link
+              key={venue.id}
+              href={`/venues/${venue.id}`}
+              className="group bg-white rounded-2xl overflow-hidden border border-gray-200 hover:shadow-lg transition-all hover:-translate-y-0.5"
+            >
+              <div className="h-48 bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center overflow-hidden">
+                {venue.image_url
+                  ? <img src={venue.image_url} alt={venue.name} className="w-full h-full object-cover" />
+                  : <span className="text-7xl">🏸</span>
+                }
+              </div>
+              <div className="p-6">
+                <h2 className="text-lg font-bold text-gray-900 group-hover:text-green-600 transition-colors">{venue.name}</h2>
+                <p className="text-sm text-gray-500 mt-1 flex items-center gap-1">
+                  <span>📍</span>{venue.address}
+                </p>
+                {venue.description && (
+                  <p className="text-sm text-gray-600 mt-3 line-clamp-2">{venue.description}</p>
+                )}
+                <div className="mt-4 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full">View courts</span>
+                  <span className="text-gray-400 group-hover:text-green-600 transition-colors">→</span>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
