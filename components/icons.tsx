@@ -2,6 +2,8 @@
  * Central icon exports — all from lucide-react.
  * Import from here so icon choices are changed in one place.
  */
+export type { LucideIcon } from 'lucide-react'
+
 export {
   // Navigation / Admin sidebar
   LayoutDashboard,
