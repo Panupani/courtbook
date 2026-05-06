@@ -37,20 +37,6 @@ export async function POST(req: NextRequest) {
 
   const feeRate: number = (court.venue as any)?.platform_fee_rate ?? 0.10
 
-  // Check no slot is already booked (race-condition guard)
-  const { data: existing } = await supabase
-    .from('bookings')
-    .select('start_time')
-    .eq('court_id', courtId)
-    .eq('booking_date', date)
-    .neq('status', 'cancelled')
-    .in('start_time', slots.map(s => s.start))
-
-  if (existing && existing.length > 0) {
-    const taken = existing.map((b: { start_time: string }) => b.start_time).join(', ')
-    return NextResponse.json({ error: `Slot(s) already booked: ${taken}` }, { status: 409 })
-  }
-
   const { data: { user } } = await supabase.auth.getUser()
 
   // Build note string with customer info
@@ -77,7 +63,15 @@ export async function POST(req: NextRequest) {
   }))
 
   const { data, error } = await supabase.from('bookings').insert(rows).select('id')
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) {
+    if (error.code === '23505') {
+      return NextResponse.json(
+        { error: 'One or more slots were just taken by another booking.' },
+        { status: 409 }
+      )
+    }
+    return NextResponse.json({ error: error.message }, { status: 400 })
+  }
 
   return NextResponse.json({ ok: true, ids: (data ?? []).map((b: { id: string }) => b.id) })
 }
