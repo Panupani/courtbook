@@ -27,7 +27,7 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Protect customer routes
-  if ((pathname.startsWith('/dashboard') || pathname.startsWith('/bookings')) && !user) {
+  if ((pathname.startsWith('/dashboard') || pathname.startsWith('/bookings') || pathname.startsWith('/farm')) && !user) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
@@ -51,5 +51,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/bookings/:path*', '/admin/:path*'],
+  matcher: ['/dashboard/:path*', '/bookings/:path*', '/admin/:path*', '/farm/:path*', '/farm'],
 }

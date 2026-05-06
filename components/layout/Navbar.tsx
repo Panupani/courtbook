@@ -71,6 +71,7 @@ export default function Navbar() {
           <nav className="hidden md:flex items-center gap-1">
             <NavLink href="/venues" current={pathname}>Venues</NavLink>
             {user && <NavLink href="/dashboard" current={pathname}>My Bookings</NavLink>}
+            {user && <NavLink href="/farm" current={pathname}>🍄 Farm</NavLink>}
             {isAdmin && <NavLink href="/admin" current={pathname}>Admin</NavLink>}
           </nav>
 
@@ -140,6 +141,7 @@ export default function Navbar() {
         <div className="md:hidden border-t border-zinc-100 bg-white px-4 pb-4 pt-2 space-y-1">
           <MobileLink href="/venues" onClick={() => setOpen(false)}>Venues</MobileLink>
           {user && <MobileLink href="/dashboard" onClick={() => setOpen(false)}>My Bookings</MobileLink>}
+          {user && <MobileLink href="/farm" onClick={() => setOpen(false)}>🍄 Farm Manager</MobileLink>}
           {isAdmin && <MobileLink href="/admin" onClick={() => setOpen(false)}>Admin Panel</MobileLink>}
           {!user && (
             <div className="pt-3 flex gap-2 border-t border-zinc-100 mt-2">
