@@ -2,15 +2,13 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
-  const [email, setEmail]     = useState('')
+  const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError]     = useState('')
-  const [loading, setLoading] = useState(false)
-  const router   = useRouter()
+  const [error, setError]       = useState('')
+  const [loading, setLoading]   = useState(false)
   const supabase = createClient()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -25,8 +23,10 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/dashboard')
-    router.refresh()
+    // Hard navigation ensures the session cookie is included in the very first
+    // request the middleware sees — router.push() + router.refresh() can race
+    // and leave the middleware seeing no session, redirecting back to "/"
+    window.location.href = '/dashboard'
   }
 
   return (
