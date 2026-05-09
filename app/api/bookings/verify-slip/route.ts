@@ -10,7 +10,7 @@ async function uploadSlip(
   userId: string,
   base64Data: string,
   mediaType: string
-): Promise<string | null> {
+): Promise<{ url: string | null; error: string | null }> {
   // Use the service-role client so storage uploads always succeed regardless
   // of bucket RLS policies (authentication is enforced at the route level).
   const adminClient = await createAdminClient()
@@ -22,18 +22,27 @@ async function uploadSlip(
       .from('payment-slips')
       .upload(fileName, buffer, { contentType: mediaType, upsert: false })
     if (error || !data) {
-      console.error('[verify-slip] Storage upload failed:', error?.message)
-      return null
+      const msg = error?.message ?? 'Unknown storage error'
+      console.error('[verify-slip] Storage upload failed:', msg)
+      return { url: null, error: msg }
     }
     const { data: urlData } = adminClient.storage.from('payment-slips').getPublicUrl(data.path)
-    return urlData.publicUrl
-  } catch (e) {
-    console.error('[verify-slip] uploadSlip threw:', e)
-    return null
+    console.log('[verify-slip] Slip uploaded successfully:', urlData.publicUrl)
+    return { url: urlData.publicUrl, error: null }
+  } catch (e: any) {
+    const msg = e?.message ?? String(e)
+    console.error('[verify-slip] uploadSlip threw:', msg)
+    return { url: null, error: msg }
   }
 }
 
 export async function POST(req: NextRequest) {
+  // Check service role key is configured — required for storage uploads
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY === 'placeholder-service-key') {
+    console.error('[verify-slip] SUPABASE_SERVICE_ROLE_KEY is not set')
+    return NextResponse.json({ error: 'Server configuration error: SUPABASE_SERVICE_ROLE_KEY is missing. Contact support.' }, { status: 503 })
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -60,9 +69,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Slip image is too large. Please use a screenshot instead.' }, { status: 400 })
   }
 
-  // Upload slip to storage so admin can view it
-  const slipUrl = await uploadSlip(user.id, base64Data, mediaType)
-  console.log('[verify-slip] Slip uploaded:', slipUrl ? 'ok' : 'failed')
+  // Upload slip to storage — fail loudly if it doesn't work
+  const { url: slipUrl, error: uploadError } = await uploadSlip(user.id, base64Data, mediaType)
+  if (uploadError) {
+    return NextResponse.json(
+      { error: `Failed to save payment slip: ${uploadError}` },
+      { status: 500 }
+    )
+  }
 
   // Fetch fee rate from first booking's court venue
   let feeRate = 0.10
