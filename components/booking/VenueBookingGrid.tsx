@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { QRCodeSVG } from 'qrcode.react'
 import type { Court, OperatingHours, Booking, TimeSlot, Venue } from '@/lib/types'
@@ -67,6 +67,81 @@ export default function VenueBookingGrid({
   const [slipPreview, setSlipPreview] = useState<string | null>(null)
   const [verifying, setVerifying] = useState(false)
   const [verifyError, setVerifyError] = useState<string | null>(null)
+
+  // After booking creation: poll Gemini verification
+  const [pendingIds, setPendingIds]       = useState<string[] | null>(null)
+  const [pendingGroupId, setPendingGroupId] = useState<string | null>(null)
+  const [verifyStatus, setVerifyStatus]   = useState<string>('')
+  const [pollCount, setPollCount]         = useState(0)
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Start / stop polling when pendingIds changes
+  useEffect(() => {
+    if (!pendingIds || pendingIds.length === 0 || !slipPreview) return
+
+    let attempts = 0
+    const MAX_ATTEMPTS = 10
+
+    const poll = async () => {
+      attempts++
+      setVerifyStatus(`Verifying payment… (${attempts}/${MAX_ATTEMPTS})`)
+      try {
+        const res = await fetch('/api/bookings/run-verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: pendingIds, slipImage: slipPreview, expectedAmount: cartTotal }),
+        })
+        const data = await res.json()
+
+        if (data.confirmed) {
+          clearInterval(pollIntervalRef.current!)
+          // Navigate to confirmation
+          if (pendingIds.length === 1 && !existingGroupId) {
+            router.push(`/bookings/${pendingIds[0]}`)
+          } else {
+            router.push(`/bookings/group/${pendingGroupId}`)
+          }
+          return
+        }
+
+        if (!data.retry) {
+          // AI definitively rejected — stop polling, show error
+          clearInterval(pollIntervalRef.current!)
+          setVerifying(false)
+          setPendingIds(null)
+          setVerifyError(`Slip not accepted: ${data.reason}. Please check the amount or upload a clearer image.`)
+          return
+        }
+
+        // data.retry = true → transient failure, keep polling
+        if (attempts >= MAX_ATTEMPTS) {
+          clearInterval(pollIntervalRef.current!)
+          // Give up — booking stays pending, admin will review manually
+          if (pendingIds.length === 1 && !existingGroupId) {
+            router.push(`/bookings/${pendingIds[0]}`)
+          } else {
+            router.push(`/bookings/group/${pendingGroupId}`)
+          }
+        }
+      } catch {
+        if (attempts >= MAX_ATTEMPTS) {
+          clearInterval(pollIntervalRef.current!)
+          if (pendingIds.length === 1 && !existingGroupId) {
+            router.push(`/bookings/${pendingIds[0]}`)
+          } else {
+            router.push(`/bookings/group/${pendingGroupId}`)
+          }
+        }
+      }
+      setPollCount(c => c + 1)
+    }
+
+    // First attempt immediately, then every 4 seconds
+    poll()
+    pollIntervalRef.current = setInterval(poll, 4000)
+    return () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingIds])
 
   const promptPayId = venue.promptpay_id || (process.env.NEXT_PUBLIC_PROMPTPAY_ID ?? '')
   const promptPayName = venue.name || 'VENUE'
@@ -147,8 +222,10 @@ export default function VenueBookingGrid({
     if (!slipPreview) { setVerifyError('Please upload your payment slip first'); return }
     setVerifying(true)
     setVerifyError(null)
+    setVerifyStatus('Saving booking…')
 
     try {
+      // Step 1: Create pending bookings (fast — no Gemini)
       const groupId = existingGroupId ?? crypto.randomUUID()
       const rows = cart.map(item => ({
         user_id: userId,
@@ -157,7 +234,7 @@ export default function VenueBookingGrid({
         start_time: item.slot.start,
         end_time: item.slot.end,
         total_price: item.slot.price,
-        status: 'confirmed',
+        status: 'pending',
         notes: notes || null,
         group_id: groupId,
       }))
@@ -171,18 +248,17 @@ export default function VenueBookingGrid({
       const data = await res.json()
 
       if (!res.ok) {
-        setVerifyError(data.error ?? 'Verification failed')
+        setVerifyError(data.error ?? 'Booking failed. Please try again.')
+        setVerifying(false)
         return
       }
 
-      if (cart.length === 1 && !existingGroupId) {
-        router.push(`/bookings/${data.ids?.[0]}`)
-      } else {
-        router.push(`/bookings/group/${groupId}`)
-      }
+      // Step 2: Start polling Gemini verification (useEffect handles the loop)
+      setPendingGroupId(groupId)
+      setPendingIds(data.ids)
+      setVerifyStatus('Verifying payment…')
     } catch {
       setVerifyError('Network error. Please try again.')
-    } finally {
       setVerifying(false)
     }
   }
@@ -358,7 +434,7 @@ export default function VenueBookingGrid({
           {verifying ? (
             <>
               <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Verifying slip…
+              {verifyStatus || 'Verifying slip…'}
             </>
           ) : (
             '✓ Verify & Confirm Booking'

@@ -1,70 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-const MODELS = [
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite',
-  'gemini-1.5-flash',
-  'gemini-1.5-flash-8b',
-]
-
-const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
-
-function extractJson(text: string): { valid: boolean; reason: string } | null {
-  // Strip markdown code fences (```json ... ``` or ``` ... ```)
-  const stripped = text.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim()
-
-  // Use greedy match to get the outermost JSON object
-  const match = stripped.match(/\{[\s\S]*\}/)
-  if (!match) {
-    console.error('[verify-slip] No JSON object found in response:', text.slice(0, 300))
-    return null
-  }
-
-  try {
-    const parsed = JSON.parse(match[0])
-    return {
-      valid:  parsed.valid === true,
-      reason: typeof parsed.reason === 'string' ? parsed.reason : 'Unable to verify slip',
-    }
-  } catch (e) {
-    console.error('[verify-slip] JSON.parse failed:', match[0].slice(0, 200), e)
-    return null
-  }
-}
-
-async function callGemini(
-  apiKey: string,
-  model: string,
-  prompt: string,
-  base64Data: string,
-  mimeType: string
-): Promise<{ valid: boolean; reason: string } | null> {
-  const res = await fetch(`${BASE}/${model}:generateContent?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [
-        { text: prompt },
-        { inline_data: { mime_type: mimeType, data: base64Data } },
-      ]}],
-      generationConfig: { temperature: 0, maxOutputTokens: 256 },
-    }),
-  })
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    const msg = err?.error?.message ?? `HTTP ${res.status}`
-    console.error(`[verify-slip] ${model} → ${res.status}: ${msg}`)
-    throw Object.assign(new Error(msg), { status: res.status })
-  }
-
-  const json = await res.json()
-  const text: string = json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? ''
-  console.log(`[verify-slip] ${model} raw response:`, text.slice(0, 500))
-
-  return extractJson(text)
-}
+// ── Step 1 of 2: upload slip + create bookings (pending status) ──────────────
+// Gemini verification is intentionally NOT called here so that booking creation
+// is instant and immune to AI timeouts. The frontend calls /api/bookings/run-verify
+// after this to do the actual Gemini check and flip the status.
 
 async function uploadSlip(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -96,12 +36,6 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) {
-    console.error('[verify-slip] GEMINI_API_KEY is not set')
-    return NextResponse.json({ error: 'Payment verification is not configured. Contact the venue.' }, { status: 503 })
-  }
-
   const body = await req.json()
   const { bookings, slipImage, expectedAmount } = body as {
     bookings: Record<string, unknown>[]
@@ -120,75 +54,13 @@ export async function POST(req: NextRequest) {
   const mediaType = rawMime === 'image/jpg' ? 'image/jpeg' : rawMime
   const base64Data = base64Match[2]
 
-  if (base64Data.length > 4_000_000) {
+  if (base64Data.length > 6_000_000) {
     return NextResponse.json({ error: 'Slip image is too large. Please use a screenshot instead.' }, { status: 400 })
   }
 
-  // Upload slip first so admin can view it even if AI is unavailable
+  // Upload slip to storage so admin can view it
   const slipUrl = await uploadSlip(supabase, user.id, base64Data, mediaType)
   console.log('[verify-slip] Slip uploaded:', slipUrl ? 'ok' : 'failed')
-
-  const prompt = `You are verifying a Thai PromptPay payment slip image.
-
-Reply with a JSON object only — no markdown, no code fences, no extra text.
-Format: {"valid": true/false, "amount": number or null, "reason": "one short sentence"}
-
-Rules:
-- valid = true ONLY when ALL of these are true:
-  1. The image is a completed Thai PromptPay transfer receipt (not pending/queued)
-  2. The transferred amount equals ฿${expectedAmount.toFixed(2)} (allow ±1 THB)
-- valid = false for: wrong amount, pending/processing transfers, non-PromptPay images, edited/fake slips
-- reason: one short English sentence explaining the decision`
-
-  let aiResult:      { valid: boolean; reason: string } | null = null
-  let quotaExceeded  = false
-  let authError      = false
-  let lastError      = ''
-
-  for (const model of MODELS) {
-    console.log(`[verify-slip] Trying model: ${model}`)
-    try {
-      aiResult = await callGemini(apiKey, model, prompt, base64Data, mediaType)
-      if (aiResult !== null) {
-        console.log(`[verify-slip] Success with ${model}:`, aiResult)
-        break
-      }
-      // null means response came back but JSON couldn't be parsed — try next model
-    } catch (err: any) {
-      const status: number = err?.status ?? 0
-      const msg:    string = err?.message ?? ''
-      lastError = `${model} ${status}: ${msg}`
-
-      if (status === 400 || status === 403 || msg.includes('API_KEY') || msg.includes('API key') || msg.includes('invalid')) {
-        authError = true
-        break
-      }
-      if (status === 429 || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
-        quotaExceeded = true
-        break
-      }
-      // 404 = model not available → try next
-      if (status === 404 || msg.toLowerCase().includes('not found')) continue
-      // Any other error (5xx, network, etc.) → try next model instead of breaking
-      console.warn(`[verify-slip] ${model} failed with ${status}, trying next model`)
-    }
-  }
-
-  console.log('[verify-slip] Final state — aiResult:', aiResult, '| quotaExceeded:', quotaExceeded, '| authError:', authError, '| lastError:', lastError)
-
-  if (authError) {
-    return NextResponse.json({ error: 'Gemini API key is invalid. Please check the GEMINI_API_KEY environment variable.' }, { status: 503 })
-  }
-
-  // AI explicitly rejected the slip
-  if (aiResult !== null && !aiResult.valid) {
-    return NextResponse.json({ error: aiResult.reason }, { status: 422 })
-  }
-
-  // Decide booking status
-  const aiAvailable   = aiResult !== null && aiResult.valid
-  const bookingStatus = aiAvailable ? 'confirmed' : 'pending'
-  const paymentStatus = aiAvailable ? 'paid'      : 'pending'
 
   // Fetch fee rate from first booking's court venue
   let feeRate = 0.10
@@ -201,23 +73,31 @@ Rules:
     feeRate = (courtData?.venue as any)?.platform_fee_rate ?? 0.10
   }
 
+  // Create bookings as pending — verification happens in /api/bookings/run-verify
   const rows = bookings.map((b: any) => ({
     ...b,
     user_id:             user.id,
     payment_method:      'promptpay',
-    payment_status:      paymentStatus,
+    payment_status:      'pending',
     payment_slip_url:    slipUrl,
-    status:              bookingStatus,
+    status:              'pending',
     platform_fee_amount: Math.round((b.total_price ?? 0) * feeRate * 100) / 100,
   }))
 
   const { data, error } = await supabase.from('bookings').insert(rows).select('id')
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) {
+    if (error.code === '23505') {
+      return NextResponse.json(
+        { error: 'One or more slots were just taken by another booking. Please go back and choose a different time.' },
+        { status: 409 }
+      )
+    }
+    return NextResponse.json({ error: error.message }, { status: 400 })
+  }
 
   return NextResponse.json({
-    ids:     data.map((r: { id: string }) => r.id),
-    pending: !aiAvailable,
-    ...(quotaExceeded && { message: 'AI verification is temporarily busy — booking held for manual review.' }),
-    ...(!aiAvailable && !quotaExceeded && lastError && { message: 'AI could not process the slip — booking held for manual review.' }),
+    ids: data.map((r: { id: string }) => r.id),
+    slipUrl,
+    pending: true,
   })
 }
