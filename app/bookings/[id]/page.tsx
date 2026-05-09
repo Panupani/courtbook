@@ -43,12 +43,21 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
           <p className="mt-2 text-gray-500">Your payment was verified. See you on the court!</p>
         </div>
       )}
-      {booking.payment_status === 'pending' && (
+      {booking.status !== 'cancelled' && booking.payment_status === 'pending' && (
         <div className="text-center mb-10">
           <div className="text-6xl mb-4">🕐</div>
           <h1 className="text-3xl font-bold text-gray-900">Slip Under Review</h1>
           <p className="mt-2 text-gray-500 max-w-sm mx-auto">
             Your slot is reserved. Staff will verify your payment slip and confirm the booking shortly.
+          </p>
+        </div>
+      )}
+      {booking.status === 'cancelled' && (
+        <div className="text-center mb-10">
+          <div className="text-6xl mb-4">❌</div>
+          <h1 className="text-3xl font-bold text-gray-900">Booking Cancelled</h1>
+          <p className="mt-2 text-gray-500 max-w-sm mx-auto">
+            This booking has been cancelled. Book another court below.
           </p>
         </div>
       )}
@@ -84,7 +93,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
             </div>
             <div>
               <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Time</p>
-              <p className="font-semibold text-gray-900 mt-1">{booking.start_time} – {booking.end_time}</p>
+              <p className="font-semibold text-gray-900 mt-1">{booking.start_time.slice(0, 5)} – {booking.end_time.slice(0, 5)}</p>
             </div>
           </div>
 

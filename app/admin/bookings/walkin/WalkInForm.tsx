@@ -15,6 +15,17 @@ interface Props {
 
 export default function WalkInForm({ venues, courts }: Props) {
   const router = useRouter()
+  const today  = new Date().toISOString().split('T')[0]
+
+  if (venues.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center text-gray-400">
+        <p className="text-4xl mb-3">🏟️</p>
+        <p className="font-semibold text-gray-600 mb-1">No venues assigned</p>
+        <p className="text-sm">Ask a system admin to assign venues to your account.</p>
+      </div>
+    )
+  }
 
   const [venueId, setVenueId]           = useState(venues[0]?.id ?? '')
   const [courtId, setCourtId]           = useState('')
@@ -140,6 +151,7 @@ export default function WalkInForm({ venues, courts }: Props) {
             <input
               type="date"
               value={date}
+              min={today}
               onChange={e => setDate(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
             />

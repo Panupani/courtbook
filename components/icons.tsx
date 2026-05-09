@@ -55,6 +55,7 @@ export {
   ShieldCheck,
   Layers,
   Star,
+  MoreHorizontal,
 } from 'lucide-react'
 
 // ── Logo mark ────────────────────────────────────────────────────────

@@ -6,26 +6,32 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export default function SignupPage() {
-  const [fullName, setFullName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
+  const [fullName, setFullName]     = useState('')
+  const [phone, setPhone]           = useState('')
+  const [email, setEmail]           = useState('')
+  const [password, setPassword]     = useState('')
+  const [confirm, setConfirm]       = useState('')
+  const [error, setError]           = useState('')
+  const [loading, setLoading]       = useState(false)
+  const [emailSent, setEmailSent]   = useState(false)
+  const router  = useRouter()
   const supabase = createClient()
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
     setError('')
+
+    if (password !== confirm) {
+      setError('Passwords do not match.')
+      return
+    }
+
+    setLoading(true)
 
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: { full_name: fullName, phone },
-      },
+      options: { data: { full_name: fullName, phone } },
     })
 
     if (signUpError) {
@@ -34,25 +40,52 @@ export default function SignupPage() {
       return
     }
 
+    // Create profile row
     if (data.user) {
-      await supabase.from('profiles').upsert({
+      const { error: profileError } = await supabase.from('profiles').upsert({
         id: data.user.id,
         full_name: fullName,
         phone,
         role: 'customer',
       })
+      if (profileError) console.error('Profile upsert failed:', profileError.message)
+    }
+
+    // If session is null, Supabase requires email confirmation first
+    if (!data.session) {
+      setEmailSent(true)
+      setLoading(false)
+      return
     }
 
     router.push('/dashboard')
     router.refresh()
   }
 
+  if (emailSent) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center px-4">
+        <div className="w-full max-w-md text-center">
+          <div className="text-6xl mb-4">📧</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Check your email</h1>
+          <p className="text-gray-500 mb-6">
+            We sent a confirmation link to <strong>{email}</strong>.<br />
+            Click the link to activate your account.
+          </p>
+          <Link href="/login" className="btn btn-primary btn-md">Go to Login</Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <span className="text-5xl">🏸</span>
-          <h1 className="mt-4 text-2xl font-bold text-gray-900">Create your account</h1>
+          <div className="w-14 h-14 bg-green-600 rounded-2xl flex items-center justify-center text-white mx-auto mb-4">
+            <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><circle cx="12" cy="19" r="2.5" fill="currentColor"/><line x1="12" y1="16.5" x2="7" y2="5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><line x1="12" y1="16.5" x2="9" y2="4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><line x1="12" y1="16.5" x2="12" y2="3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><line x1="12" y1="16.5" x2="15" y2="4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><line x1="12" y1="16.5" x2="17" y2="5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><path d="M7 5 Q12 2.5 17 5" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round"/></svg>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">Create your account</h1>
           <p className="mt-1 text-gray-500 text-sm">Start booking courts today</p>
         </div>
 
@@ -64,8 +97,9 @@ export default function SignupPage() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Full name</label>
+            <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">Full name</label>
             <input
+              id="fullName"
               type="text"
               required
               value={fullName}
@@ -76,8 +110,9 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Phone number</label>
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Phone number</label>
             <input
+              id="phone"
               type="tel"
               value={phone}
               onChange={e => setPhone(e.target.value)}
@@ -87,8 +122,9 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input
+              id="email"
               type="email"
               required
               value={email}
@@ -99,8 +135,9 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input
+              id="password"
               type="password"
               required
               minLength={6}
@@ -109,6 +146,25 @@ export default function SignupPage() {
               className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
               placeholder="At least 6 characters"
             />
+          </div>
+
+          <div>
+            <label htmlFor="confirm" className="block text-sm font-medium text-gray-700 mb-1">Confirm password</label>
+            <input
+              id="confirm"
+              type="password"
+              required
+              minLength={6}
+              value={confirm}
+              onChange={e => setConfirm(e.target.value)}
+              className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                confirm && confirm !== password ? 'border-red-300' : 'border-gray-300'
+              }`}
+              placeholder="Repeat your password"
+            />
+            {confirm && confirm !== password && (
+              <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
+            )}
           </div>
 
           <button

@@ -64,21 +64,32 @@ export default function CheckInBoard({ bookings: initial, date }: Props) {
   const checkedIn  = bookings.filter(b => b.checked_in_at).length
   const remaining  = bookings.filter(b => !b.checked_in_at && b.status === 'confirmed').length
 
+  const [checkInError, setCheckInError] = useState<string | null>(null)
+
   const handleCheckIn = async (id: string, undo = false) => {
     setLoadingId(id)
-    const res = await fetch('/api/admin/checkin', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bookingId: id, undo }),
-    })
-    if (res.ok) {
-      const now = new Date().toISOString()
-      setBookings(prev => prev.map(b =>
-        b.id === id ? { ...b, checked_in_at: undo ? null : now } : b
-      ))
-      startTransition(() => router.refresh())
+    setCheckInError(null)
+    try {
+      const res = await fetch('/api/admin/checkin', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: id, undo }),
+      })
+      if (res.ok) {
+        const now = new Date().toISOString()
+        setBookings(prev => prev.map(b =>
+          b.id === id ? { ...b, checked_in_at: undo ? null : now } : b
+        ))
+        startTransition(() => router.refresh())
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setCheckInError(data.error ?? 'Check-in failed. Please try again.')
+      }
+    } catch {
+      setCheckInError('Network error. Please try again.')
+    } finally {
+      setLoadingId(null)
     }
-    setLoadingId(null)
   }
 
   const filtered = bookings.filter(b => {
@@ -104,15 +115,23 @@ export default function CheckInBoard({ bookings: initial, date }: Props) {
           <p className="text-2xl font-bold text-gray-900">{total}</p>
           <p className="text-xs text-gray-500 mt-1">Total Bookings</p>
         </div>
-        <div className="bg-white rounded-2xl border border-green-200 bg-green-50 p-4 text-center">
+        <div className="bg-green-50 rounded-2xl border border-green-200 p-4 text-center">
           <p className="text-2xl font-bold text-green-700">{checkedIn}</p>
           <p className="text-xs text-green-600 mt-1">Checked In</p>
         </div>
-        <div className="bg-white rounded-2xl border border-blue-200 bg-blue-50 p-4 text-center">
+        <div className="bg-blue-50 rounded-2xl border border-blue-200 p-4 text-center">
           <p className="text-2xl font-bold text-blue-700">{remaining}</p>
           <p className="text-xs text-blue-600 mt-1">Remaining</p>
         </div>
       </div>
+
+      {/* Error toast */}
+      {checkInError && (
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl flex items-center justify-between">
+          <span>{checkInError}</span>
+          <button onClick={() => setCheckInError(null)} className="ml-3 text-red-400 hover:text-red-600">✕</button>
+        </div>
+      )}
 
       {/* Filter tabs */}
       <div className="flex gap-2 mb-5">

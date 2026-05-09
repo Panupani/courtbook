@@ -9,15 +9,19 @@ import type { Profile } from '@/lib/types'
 import { ShuttlecockIcon, Menu, X, ChevronDown, BookOpen, Settings, LogOut } from '@/components/icons'
 
 export default function Navbar() {
-  const [user, setUser]         = useState<User | null>(null)
-  const [profile, setProfile]   = useState<Profile | null>(null)
-  const [open, setOpen]         = useState(false)
-  const [scrolled, setScrolled] = useState(false)
+  const [user, setUser]           = useState<User | null>(null)
+  const [profile, setProfile]     = useState<Profile | null>(null)
+  const [menuOpen, setMenuOpen]   = useState(false)   // mobile nav
+  const [dropOpen, setDropOpen]   = useState(false)   // user dropdown
+  const [scrolled, setScrolled]   = useState(false)
   const router   = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'venue_admin'
+
+  // Close mobile menu on route change
+  useEffect(() => { setMenuOpen(false) }, [pathname])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -25,21 +29,31 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  const fetchProfile = async (userId: string) => {
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
+    setProfile(data)
+  }
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user)
-      if (user) supabase.from('profiles').select('*').eq('id', user.id).single().then(({ data }) => setProfile(data))
+      if (user) fetchProfile(user.id)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null)
-      if (!session?.user) setProfile(null)
+      if (session?.user) {
+        fetchProfile(session.user.id)   // re-fetch on every auth event (login, refresh, OAuth)
+      } else {
+        setProfile(null)
+      }
     })
     return () => subscription.unsubscribe()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    setOpen(false)
+    setDropOpen(false)
+    setMenuOpen(false)
     router.push('/')
     router.refresh()
   }
@@ -55,7 +69,7 @@ export default function Navbar() {
         : 'bg-white border-b border-zinc-200'
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between" style={{ height: '60px' }}>
+        <div className="flex items-center justify-between h-[60px]">
 
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
@@ -79,27 +93,28 @@ export default function Navbar() {
             {user ? (
               <div className="relative">
                 <button
-                  onClick={() => setOpen(!open)}
+                  onClick={() => setDropOpen(!dropOpen)}
+                  aria-label="Open account menu"
                   className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 transition-all text-sm font-medium text-zinc-700"
                 >
                   <div className="w-7 h-7 rounded-full bg-green-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                     {initials}
                   </div>
                   <span className="hidden sm:block max-w-[120px] truncate">{profile?.full_name ?? user.email}</span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${dropOpen ? 'rotate-180' : ''}`} />
                 </button>
 
-                {open && (
+                {dropOpen && (
                   <>
-                    <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+                    <div className="fixed inset-0 z-40" onClick={() => setDropOpen(false)} />
                     <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-xl border border-zinc-200 py-1.5 z-50 overflow-hidden">
                       <div className="px-4 py-2.5 border-b border-zinc-100">
                         <p className="text-xs font-semibold text-zinc-900 truncate">{profile?.full_name ?? 'My Account'}</p>
                         <p className="text-xs text-zinc-400 truncate mt-0.5">{user.email}</p>
                       </div>
                       <div className="py-1">
-                        <DropItem href="/dashboard" icon={<BookOpen className="w-3.5 h-3.5" />} onClick={() => setOpen(false)}>My Bookings</DropItem>
-                        {isAdmin && <DropItem href="/admin" icon={<Settings className="w-3.5 h-3.5" />} onClick={() => setOpen(false)}>Admin Panel</DropItem>}
+                        <DropItem href="/dashboard" icon={<BookOpen className="w-3.5 h-3.5" />} onClick={() => setDropOpen(false)}>My Bookings</DropItem>
+                        {isAdmin && <DropItem href="/admin" icon={<Settings className="w-3.5 h-3.5" />} onClick={() => setDropOpen(false)}>Admin Panel</DropItem>}
                       </div>
                       <div className="border-t border-zinc-100 py-1">
                         <button
@@ -123,28 +138,28 @@ export default function Navbar() {
               </>
             )}
 
-            {/* Mobile menu toggle */}
+            {/* Mobile hamburger — separate state from user dropdown */}
             <button
-              onClick={() => setOpen(!open)}
+              onClick={() => setMenuOpen(!menuOpen)}
               className="md:hidden p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-100 transition-colors ml-1"
-              aria-label="Toggle menu"
+              aria-label="Toggle navigation menu"
             >
-              {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile menu */}
-      {open && (
+      {/* Mobile menu — controlled by menuOpen, not dropOpen */}
+      {menuOpen && (
         <div className="md:hidden border-t border-zinc-100 bg-white px-4 pb-4 pt-2 space-y-1">
-          <MobileLink href="/venues" onClick={() => setOpen(false)}>Venues</MobileLink>
-          {user && <MobileLink href="/dashboard" onClick={() => setOpen(false)}>My Bookings</MobileLink>}
-          {isAdmin && <MobileLink href="/admin" onClick={() => setOpen(false)}>Admin Panel</MobileLink>}
+          <MobileLink href="/venues"    onClick={() => setMenuOpen(false)}>Venues</MobileLink>
+          {user && <MobileLink href="/dashboard" onClick={() => setMenuOpen(false)}>My Bookings</MobileLink>}
+          {isAdmin && <MobileLink href="/admin"  onClick={() => setMenuOpen(false)}>Admin Panel</MobileLink>}
           {!user && (
             <div className="pt-3 flex gap-2 border-t border-zinc-100 mt-2">
-              <Link href="/login" onClick={() => setOpen(false)} className="flex-1 btn btn-ghost btn-md text-center">Log in</Link>
-              <Link href="/signup" onClick={() => setOpen(false)} className="flex-1 btn btn-primary btn-md text-center">Sign up</Link>
+              <Link href="/login"   onClick={() => setMenuOpen(false)} className="flex-1 btn btn-ghost btn-md text-center">Log in</Link>
+              <Link href="/signup"  onClick={() => setMenuOpen(false)} className="flex-1 btn btn-primary btn-md text-center">Sign up</Link>
             </div>
           )}
           {user && (

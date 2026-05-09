@@ -96,16 +96,16 @@ export default async function HomePage() {
         <div className="absolute inset-0 opacity-[.035]"
           style={{backgroundImage:'linear-gradient(rgba(255,255,255,.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.8) 1px,transparent 1px)',backgroundSize:'52px 52px'}} />
 
-        {/* Floating court graphic */}
-        <div className="absolute right-[-2%] md:right-[4%] top-1/2 -translate-y-1/2 anim-float-slow pointer-events-none select-none">
+        {/* Floating court graphic — decorative, hidden from assistive tech */}
+        <div aria-hidden="true" className="absolute right-[-2%] md:right-[4%] top-1/2 -translate-y-1/2 anim-float-slow pointer-events-none select-none">
           <CourtGraphic className="w-[260px] md:w-[340px] opacity-70" />
         </div>
 
         {/* Rotating ring decoration */}
-        <div className="absolute right-[8%] md:right-[14%] top-1/2 -translate-y-1/2 pointer-events-none">
+        <div aria-hidden="true" className="absolute right-[8%] md:right-[14%] top-1/2 -translate-y-1/2 pointer-events-none">
           <div className="anim-spin-slow w-[420px] h-[420px] md:w-[560px] md:h-[560px] rounded-full border border-green-500/10" />
         </div>
-        <div className="absolute right-[12%] md:right-[18%] top-1/2 -translate-y-1/2 pointer-events-none">
+        <div aria-hidden="true" className="absolute right-[12%] md:right-[18%] top-1/2 -translate-y-1/2 pointer-events-none">
           <div className="anim-spin-slow delay-300 w-[280px] h-[280px] md:w-[380px] md:h-[380px] rounded-full border border-green-500/[.07]" style={{animationDirection:'reverse'}} />
         </div>
 
@@ -320,11 +320,7 @@ export default async function HomePage() {
                       {venue.description && (
                         <p className="text-sm text-zinc-500 mt-2 line-clamp-2 flex-1">{venue.description}</p>
                       )}
-                      <div className="mt-4 pt-4 border-t border-zinc-100 flex items-center justify-between">
-                        <div className="flex items-center gap-0.5">
-                          {[1,2,3,4,5].map(s => <Star key={s} className="w-3 h-3 text-amber-400 fill-amber-400" />)}
-                          <span className="text-xs text-zinc-400 ml-1">5.0</span>
-                        </div>
+                      <div className="mt-4 pt-4 border-t border-zinc-100 flex items-center justify-end">
                         <span className="text-xs font-semibold text-green-600 flex items-center gap-1 group-hover:gap-2 transition-all">
                           Book now <ArrowRight className="w-3 h-3" />
                         </span>
