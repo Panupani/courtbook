@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 
 // ── Step 1 of 2: upload slip + create bookings (pending status) ──────────────
 // Gemini verification is intentionally NOT called here so that booking creation
@@ -7,23 +7,25 @@ import { createClient } from '@/lib/supabase/server'
 // after this to do the actual Gemini check and flip the status.
 
 async function uploadSlip(
-  supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   base64Data: string,
   mediaType: string
 ): Promise<string | null> {
+  // Use the service-role client so storage uploads always succeed regardless
+  // of bucket RLS policies (authentication is enforced at the route level).
+  const adminClient = await createAdminClient()
   try {
     const ext = mediaType.split('/')[1] ?? 'jpg'
     const fileName = `${userId}/${Date.now()}.${ext}`
     const buffer = Buffer.from(base64Data, 'base64')
-    const { data, error } = await supabase.storage
+    const { data, error } = await adminClient.storage
       .from('payment-slips')
       .upload(fileName, buffer, { contentType: mediaType, upsert: false })
     if (error || !data) {
       console.error('[verify-slip] Storage upload failed:', error?.message)
       return null
     }
-    const { data: urlData } = supabase.storage.from('payment-slips').getPublicUrl(data.path)
+    const { data: urlData } = adminClient.storage.from('payment-slips').getPublicUrl(data.path)
     return urlData.publicUrl
   } catch (e) {
     console.error('[verify-slip] uploadSlip threw:', e)
@@ -59,7 +61,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Upload slip to storage so admin can view it
-  const slipUrl = await uploadSlip(supabase, user.id, base64Data, mediaType)
+  const slipUrl = await uploadSlip(user.id, base64Data, mediaType)
   console.log('[verify-slip] Slip uploaded:', slipUrl ? 'ok' : 'failed')
 
   // Fetch fee rate from first booking's court venue
