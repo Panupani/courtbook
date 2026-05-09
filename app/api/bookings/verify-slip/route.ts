@@ -2,13 +2,36 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 const MODELS = [
-  'gemini-2.0-flash-lite',
   'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
   'gemini-1.5-flash',
   'gemini-1.5-flash-8b',
 ]
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
+
+function extractJson(text: string): { valid: boolean; reason: string } | null {
+  // Strip markdown code fences (```json ... ``` or ``` ... ```)
+  const stripped = text.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim()
+
+  // Use greedy match to get the outermost JSON object
+  const match = stripped.match(/\{[\s\S]*\}/)
+  if (!match) {
+    console.error('[verify-slip] No JSON object found in response:', text.slice(0, 300))
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(match[0])
+    return {
+      valid:  parsed.valid === true,
+      reason: typeof parsed.reason === 'string' ? parsed.reason : 'Unable to verify slip',
+    }
+  } catch (e) {
+    console.error('[verify-slip] JSON.parse failed:', match[0].slice(0, 200), e)
+    return null
+  }
+}
 
 async function callGemini(
   apiKey: string,
@@ -38,16 +61,9 @@ async function callGemini(
 
   const json = await res.json()
   const text: string = json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? ''
-  console.log(`[verify-slip] ${model} response:`, text)
+  console.log(`[verify-slip] ${model} raw response:`, text.slice(0, 500))
 
-  const jsonMatch = text.match(/\{[\s\S]*?\}/)
-  if (!jsonMatch) return null
-
-  const parsed = JSON.parse(jsonMatch[0])
-  return {
-    valid: parsed.valid === true,
-    reason: typeof parsed.reason === 'string' ? parsed.reason : 'Unable to verify slip',
-  }
+  return extractJson(text)
 }
 
 async function uploadSlip(
@@ -63,10 +79,14 @@ async function uploadSlip(
     const { data, error } = await supabase.storage
       .from('payment-slips')
       .upload(fileName, buffer, { contentType: mediaType, upsert: false })
-    if (error || !data) return null
+    if (error || !data) {
+      console.error('[verify-slip] Storage upload failed:', error?.message)
+      return null
+    }
     const { data: urlData } = supabase.storage.from('payment-slips').getPublicUrl(data.path)
     return urlData.publicUrl
-  } catch {
+  } catch (e) {
+    console.error('[verify-slip] uploadSlip threw:', e)
     return null
   }
 }
@@ -78,6 +98,7 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
+    console.error('[verify-slip] GEMINI_API_KEY is not set')
     return NextResponse.json({ error: 'Payment verification is not configured. Contact the venue.' }, { status: 503 })
   }
 
@@ -95,65 +116,79 @@ export async function POST(req: NextRequest) {
   const base64Match = slipImage.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/)
   if (!base64Match) return NextResponse.json({ error: 'Invalid image format' }, { status: 400 })
 
-  const rawMime = base64Match[1].toLowerCase()
+  const rawMime   = base64Match[1].toLowerCase()
   const mediaType = rawMime === 'image/jpg' ? 'image/jpeg' : rawMime
   const base64Data = base64Match[2]
 
   if (base64Data.length > 4_000_000) {
-    return NextResponse.json({ error: 'Slip image is too large. Please use a screenshot instead of a full photo.' }, { status: 400 })
+    return NextResponse.json({ error: 'Slip image is too large. Please use a screenshot instead.' }, { status: 400 })
   }
 
-  // Upload slip first so admin can review it even if AI is unavailable
+  // Upload slip first so admin can view it even if AI is unavailable
   const slipUrl = await uploadSlip(supabase, user.id, base64Data, mediaType)
+  console.log('[verify-slip] Slip uploaded:', slipUrl ? 'ok' : 'failed')
 
-  const prompt = `Analyze this payment slip image.
+  const prompt = `You are verifying a Thai PromptPay payment slip image.
 
-Reply with JSON only — no markdown, no extra text:
-{"valid": boolean, "amount": number | null, "reason": string}
+Reply with a JSON object only — no markdown, no code fences, no extra text.
+Format: {"valid": true/false, "amount": number or null, "reason": "one short sentence"}
 
 Rules:
-- valid = true ONLY when: (1) this is a completed Thai PromptPay transfer receipt AND (2) the transferred amount equals ฿${expectedAmount.toFixed(2)} (±1 THB tolerance)
-- valid = false for: pending/queued transfers, wrong amount, non-PromptPay images, or anything edited
-- reason: one short English sentence`
+- valid = true ONLY when ALL of these are true:
+  1. The image is a completed Thai PromptPay transfer receipt (not pending/queued)
+  2. The transferred amount equals ฿${expectedAmount.toFixed(2)} (allow ±1 THB)
+- valid = false for: wrong amount, pending/processing transfers, non-PromptPay images, edited/fake slips
+- reason: one short English sentence explaining the decision`
 
-  // Try each model — fall through on 404, stop on quota/auth errors
-  let aiResult: { valid: boolean; reason: string } | null = null
-  let quotaExceeded = false
-  let authError = false
+  let aiResult:      { valid: boolean; reason: string } | null = null
+  let quotaExceeded  = false
+  let authError      = false
+  let lastError      = ''
 
   for (const model of MODELS) {
+    console.log(`[verify-slip] Trying model: ${model}`)
     try {
       aiResult = await callGemini(apiKey, model, prompt, base64Data, mediaType)
-      if (aiResult !== null) break
+      if (aiResult !== null) {
+        console.log(`[verify-slip] Success with ${model}:`, aiResult)
+        break
+      }
+      // null means response came back but JSON couldn't be parsed — try next model
     } catch (err: any) {
       const status: number = err?.status ?? 0
-      const msg: string = err?.message ?? ''
+      const msg:    string = err?.message ?? ''
+      lastError = `${model} ${status}: ${msg}`
 
-      if (status === 400 || status === 403 || msg.includes('API_KEY') || msg.includes('API key')) {
-        authError = true; break
+      if (status === 400 || status === 403 || msg.includes('API_KEY') || msg.includes('API key') || msg.includes('invalid')) {
+        authError = true
+        break
       }
       if (status === 429 || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
-        quotaExceeded = true; break
+        quotaExceeded = true
+        break
       }
-      // 404 = model not found → try next
-      if (status !== 404 && !msg.includes('not found')) break
+      // 404 = model not available → try next
+      if (status === 404 || msg.toLowerCase().includes('not found')) continue
+      // Any other error (5xx, network, etc.) → try next model instead of breaking
+      console.warn(`[verify-slip] ${model} failed with ${status}, trying next model`)
     }
   }
 
-  // Hard failures — don't proceed
+  console.log('[verify-slip] Final state — aiResult:', aiResult, '| quotaExceeded:', quotaExceeded, '| authError:', authError, '| lastError:', lastError)
+
   if (authError) {
-    return NextResponse.json({ error: 'Verification key is invalid. Contact the venue.' }, { status: 503 })
+    return NextResponse.json({ error: 'Gemini API key is invalid. Please check the GEMINI_API_KEY environment variable.' }, { status: 503 })
   }
 
-  // AI rejected the slip
+  // AI explicitly rejected the slip
   if (aiResult !== null && !aiResult.valid) {
     return NextResponse.json({ error: aiResult.reason }, { status: 422 })
   }
 
   // Decide booking status
-  const aiAvailable = aiResult !== null
-  const bookingStatus   = aiAvailable ? 'confirmed' : 'pending'
-  const paymentStatus   = aiAvailable ? 'paid'      : 'pending'
+  const aiAvailable   = aiResult !== null && aiResult.valid
+  const bookingStatus = aiAvailable ? 'confirmed' : 'pending'
+  const paymentStatus = aiAvailable ? 'paid'      : 'pending'
 
   // Fetch fee rate from first booking's court venue
   let feeRate = 0.10
@@ -180,8 +215,9 @@ Rules:
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
   return NextResponse.json({
-    ids: data.map((r: { id: string }) => r.id),
+    ids:     data.map((r: { id: string }) => r.id),
     pending: !aiAvailable,
-    ...(quotaExceeded && { message: 'AI verification is temporarily busy — your booking is held for manual review by staff.' }),
+    ...(quotaExceeded && { message: 'AI verification is temporarily busy — booking held for manual review.' }),
+    ...(!aiAvailable && !quotaExceeded && lastError && { message: 'AI could not process the slip — booking held for manual review.' }),
   })
 }

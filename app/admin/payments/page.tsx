@@ -90,7 +90,7 @@ export default async function AdminPaymentsPage() {
                   </div>
                   <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                     <span className="text-xs bg-yellow-100 text-yellow-700 font-semibold px-2.5 py-1 rounded-full">Awaiting review</span>
-                    <ApproveActions bookingId={b.id} />
+                    <ApproveActions bookingId={b.id} hasSlip={!!b.payment_slip_url} />
                   </div>
                 </div>
               </div>
