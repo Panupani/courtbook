@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
 function resolveUrl(val: string | undefined) {
@@ -36,21 +37,11 @@ export async function createClient() {
   })
 }
 
-export async function createAdminClient() {
-  const cookieStore = await cookies()
-
-  return createServerClient(supabaseUrl, supabaseServiceKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll()
-      },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          )
-        } catch {}
-      },
-    },
+// Plain supabase-js client with the service role key.
+// Uses createClient (not createServerClient) so it truly bypasses all RLS —
+// including storage.objects policies that createServerClient does not skip.
+export function createAdminClient() {
+  return createSupabaseClient(supabaseUrl, supabaseServiceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
   })
 }

@@ -13,7 +13,7 @@ async function uploadSlip(
 ): Promise<{ url: string | null; error: string | null }> {
   // Use the service-role client so storage uploads always succeed regardless
   // of bucket RLS policies (authentication is enforced at the route level).
-  const adminClient = await createAdminClient()
+  const adminClient = createAdminClient()
   try {
     const ext = mediaType.split('/')[1] ?? 'jpg'
     const fileName = `${userId}/${Date.now()}.${ext}`
