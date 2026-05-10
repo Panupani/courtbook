@@ -114,6 +114,7 @@ Rules:
 - reason: one short English sentence explaining the decision`
 
   let aiResult: { valid: boolean; reason: string } | null = null
+  let lastError = ''
 
   for (const model of MODELS) {
     try {
@@ -125,15 +126,25 @@ Rules:
     } catch (err: any) {
       const status: number = err?.status ?? 0
       const msg: string = err?.message ?? ''
-      if (status === 400 || status === 403 || msg.includes('API_KEY') || msg.includes('API key')) break
-      if (status === 429 || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) break
-      if (status === 404) continue
-      console.warn(`[reverify-slip] ${model} failed ${status}, trying next`)
+      lastError = `${model} → ${status}: ${msg}`
+      console.warn(`[reverify-slip] ${lastError}`)
+
+      if (status === 400 || status === 403 || msg.includes('API_KEY') || msg.includes('API key') || msg.includes('invalid')) {
+        return NextResponse.json({ error: `Gemini API key error (${msg}). Check GEMINI_API_KEY in Vercel env vars.` }, { status: 503 })
+      }
+      if (status === 429 || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+        console.warn(`[reverify-slip] Quota on ${model}, trying next`)
+        continue  // try next model instead of giving up
+      }
+      if (status === 404) { continue }
+      // other errors — try next model
     }
   }
 
   if (aiResult === null) {
-    return NextResponse.json({ error: 'AI could not process the slip. Try again later.' }, { status: 503 })
+    return NextResponse.json({
+      error: `AI could not process the slip. Last error: ${lastError || 'unknown'}. Visit /api/admin/test-gemini to diagnose.`,
+    }, { status: 503 })
   }
 
   if (!aiResult.valid) {
