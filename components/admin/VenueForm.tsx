@@ -19,7 +19,7 @@ export default function VenueForm({ venue }: Props) {
   const [description, setDescription] = useState(venue?.description ?? '')
   const [imageUrl, setImageUrl] = useState(venue?.image_url ?? '')
   const [promptpayId, setPromptpayId] = useState(venue?.promptpay_id ?? '')
-  const [feeRate, setFeeRate] = useState<number>((venue?.platform_fee_rate ?? 0.10) * 100)
+  const [feeRate, setFeeRate] = useState<number>((venue?.platform_fee_rate ?? 0.05) * 100)
   const [isActive, setIsActive] = useState(venue?.is_active ?? true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')

@@ -114,7 +114,9 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
             <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-1">Payment</p>
-                <p className="text-sm font-semibold text-gray-800">📱 PromptPay</p>
+                <p className="text-sm font-semibold text-gray-800">
+                  {booking.payment_method === 'cash' ? '💵 Cash' : '📱 PromptPay'}
+                </p>
                 {booking.payment_slip_url && (
                   <a href={booking.payment_slip_url} target="_blank" rel="noopener noreferrer" className="text-xs text-green-600 hover:underline mt-1 inline-block">
                     View slip →

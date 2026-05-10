@@ -15,7 +15,7 @@ export interface Venue {
   description: string | null
   image_url: string | null
   promptpay_id: string | null
-  platform_fee_rate: number   // e.g. 0.10 = 10%
+  platform_fee_rate: number   // e.g. 0.05 = 5%
   is_active: boolean
   created_at: string
 }

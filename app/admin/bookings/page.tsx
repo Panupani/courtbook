@@ -7,6 +7,7 @@ import { getAdminContext } from '@/lib/admin'
 import { formatDate, formatPrice } from '@/lib/utils'
 import BookingStatusButton from './BookingStatusButton'
 import BookingFilters from './BookingFilters'
+import SlipViewer from './SlipViewer'
 
 export default async function AdminBookingsPage({
   searchParams,
@@ -28,7 +29,7 @@ export default async function AdminBookingsPage({
 
   let query = supabase
     .from('bookings')
-    .select('*, court:courts(name, venue:venues(name)), profile:profiles(full_name, phone)')
+    .select('*, court:courts(name, venue:venues(name)), profile:profiles(full_name, phone), payment_slip_url')
     .order('booking_date', { ascending: false })
     .order('start_time', { ascending: false })
 
@@ -76,6 +77,7 @@ export default async function AdminBookingsPage({
                 <th className="px-5 py-3 text-left">Date & Time</th>
                 <th className="px-5 py-3 text-left">Total</th>
                 <th className="px-5 py-3 text-left">Status</th>
+                <th className="px-5 py-3 text-left">Slip</th>
                 <th className="px-5 py-3 text-right">Action</th>
               </tr>
             </thead>
@@ -100,6 +102,12 @@ export default async function AdminBookingsPage({
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusColors[b.status]}`}>
                       {b.status}
                     </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    {b.payment_slip_url
+                      ? <SlipViewer url={b.payment_slip_url} />
+                      : <span className="text-xs text-gray-300">—</span>
+                    }
                   </td>
                   <td className="px-5 py-4 text-right">
                     {b.status !== 'cancelled' && <BookingStatusButton id={b.id} />}

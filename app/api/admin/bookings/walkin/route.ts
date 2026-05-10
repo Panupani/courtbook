@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Not allowed' }, { status: 403 })
   }
 
-  const feeRate: number = (court.venue as any)?.platform_fee_rate ?? 0.10
+  const feeRate: number = (court.venue as any)?.platform_fee_rate ?? 0.05
 
   const { data: { user } } = await supabase.auth.getUser()
 

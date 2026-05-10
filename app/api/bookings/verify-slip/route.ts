@@ -79,14 +79,14 @@ export async function POST(req: NextRequest) {
   }
 
   // Fetch fee rate from first booking's court venue
-  let feeRate = 0.10
+  let feeRate = 0.05
   if (bookings[0]?.court_id) {
     const { data: courtData } = await supabase
       .from('courts')
       .select('venue:venues(platform_fee_rate)')
       .eq('id', bookings[0].court_id as string)
       .single()
-    feeRate = (courtData?.venue as any)?.platform_fee_rate ?? 0.10
+    feeRate = (courtData?.venue as any)?.platform_fee_rate ?? 0.05
   }
 
   // Create bookings as pending — verification happens in /api/bookings/run-verify

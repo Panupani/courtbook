@@ -86,12 +86,15 @@ export function calcPrice(startTime: string, endTime: string, hourlyRate: number
   return Math.round(durationHours * hourlyRate * 100) / 100
 }
 
-export function formatPrice(amount: number, currency = 'THB'): string {
-  return new Intl.NumberFormat('th-TH', { style: 'currency', currency }).format(amount)
+export function formatPrice(amount: number | null | undefined, currency = 'THB'): string {
+  const n = (amount == null || isNaN(amount as number)) ? 0 : amount
+  return new Intl.NumberFormat('th-TH', { style: 'currency', currency }).format(n)
 }
 
-export function formatDate(dateStr: string): string {
+export function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—'
   const date = new Date(dateStr + 'T00:00:00')
+  if (isNaN(date.getTime())) return dateStr  // fallback: show raw string rather than "Invalid Date"
   return date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 

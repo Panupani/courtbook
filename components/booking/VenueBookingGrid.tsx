@@ -252,10 +252,9 @@ export default function VenueBookingGrid({
     if (!slipPreview) { setVerifyError('Please upload your payment slip first'); return }
     setVerifying(true)
     setVerifyError(null)
-    setVerifyStatus('Saving booking…')
+    setVerifyStatus(timerExpired ? 'Submitting for manual review…' : 'Saving booking…')
 
     try {
-      // Step 1: Create pending bookings (fast — no Gemini)
       const groupId = existingGroupId ?? crypto.randomUUID()
       const rows = cart.map(item => ({
         user_id: userId,
@@ -283,7 +282,18 @@ export default function VenueBookingGrid({
         return
       }
 
-      // Step 2: Start polling Gemini verification (useEffect handles the loop)
+      // If timer expired → skip Gemini, go straight to pending booking page
+      if (timerExpired) {
+        setVerifying(false)
+        if (data.ids?.length === 1 && !existingGroupId) {
+          router.push(`/bookings/${data.ids[0]}`)
+        } else {
+          router.push(`/bookings/group/${groupId}`)
+        }
+        return
+      }
+
+      // Normal flow: start polling Gemini verification
       setPendingGroupId(groupId)
       setPendingIds(data.ids)
       setVerifyStatus('Verifying payment…')
@@ -329,19 +339,13 @@ export default function VenueBookingGrid({
           )}
         </div>
 
-        {/* Expired overlay */}
+        {/* Expired notice */}
         {timerExpired && (
-          <div className="mb-5 bg-red-50 border border-red-200 rounded-2xl px-5 py-4 text-center">
-            <p className="text-red-700 font-semibold text-sm">⏱ Time limit reached</p>
-            <p className="text-red-500 text-xs mt-1">
-              Your slip must be uploaded within 5 minutes of payment for security. Please pay again and upload immediately.
+          <div className="mb-5 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
+            <p className="text-amber-800 font-semibold text-sm">⏱ Time limit reached</p>
+            <p className="text-amber-700 text-xs mt-1">
+              Already paid? You can still upload your slip — your booking will be held for admin review and confirmed once verified.
             </p>
-            <button
-              onClick={() => { setTimeLeft(TIMER_SECONDS); setSlipFile(null); setSlipPreview(null); setVerifyError(null) }}
-              className="mt-3 text-xs text-red-600 underline hover:text-red-800"
-            >
-              Restart timer
-            </button>
           </div>
         )}
 
@@ -495,21 +499,29 @@ export default function VenueBookingGrid({
         {/* Verify button */}
         <button
           onClick={handleVerify}
-          disabled={verifying || !slipPreview || timerExpired}
-          className="w-full bg-green-600 text-white font-bold py-4 rounded-2xl hover:bg-green-700 transition-colors disabled:opacity-50 text-base flex items-center justify-center gap-2"
+          disabled={verifying || !slipPreview}
+          className={`w-full font-bold py-4 rounded-2xl transition-colors disabled:opacity-50 text-base flex items-center justify-center gap-2 ${
+            timerExpired
+              ? 'bg-amber-500 hover:bg-amber-600 text-white'
+              : 'bg-green-600 hover:bg-green-700 text-white'
+          }`}
         >
           {verifying ? (
             <>
               <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               {verifyStatus || 'Verifying slip…'}
             </>
+          ) : timerExpired ? (
+            '📋 Submit for Manual Review'
           ) : (
             '✓ Verify & Confirm Booking'
           )}
         </button>
 
         <p className="text-center text-xs text-gray-400 mt-3">
-          Your slip is verified using AI. Booking is confirmed instantly on success.
+          {timerExpired
+            ? 'Your booking will be held and confirmed by admin once the slip is reviewed.'
+            : 'Your slip is verified using AI. Booking is confirmed instantly on success.'}
         </p>
       </div>
     )

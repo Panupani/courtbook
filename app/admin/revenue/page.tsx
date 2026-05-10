@@ -45,7 +45,7 @@ export default async function RevenuePage({
     if (!venue) continue
     const existing = venueMap.get(venue.id) ?? {
       name: venue.name,
-      feeRate: venue.platform_fee_rate ?? 0.10,
+      feeRate: venue.platform_fee_rate ?? 0.05,
       gross: 0, fee: 0, count: 0,
     }
     existing.gross += b.total_price ?? 0

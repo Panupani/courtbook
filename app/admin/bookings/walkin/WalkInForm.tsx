@@ -42,11 +42,12 @@ export default function WalkInForm({ venues, courts }: Props) {
 
   const filteredCourts = courts.filter(c => c.venue_id === venueId)
 
-  // Reset court when venue changes
+  // Reset court when venue changes (courts dep covers the case where parent re-fetches)
   useEffect(() => {
     const first = filteredCourts[0]?.id ?? ''
     setCourtId(first)
-  }, [venueId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [venueId, courts])
 
   // Load slots when court or date changes
   const loadSlots = useCallback(async () => {
