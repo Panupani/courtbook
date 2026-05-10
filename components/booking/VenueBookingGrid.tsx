@@ -68,6 +68,36 @@ export default function VenueBookingGrid({
   const [verifying, setVerifying] = useState(false)
   const [verifyError, setVerifyError] = useState<string | null>(null)
 
+  // 5-minute countdown timer (starts when entering checkout)
+  const TIMER_SECONDS = 5 * 60
+  const [timeLeft, setTimeLeft] = useState(TIMER_SECONDS)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    if (step !== 'checkout') {
+      if (timerRef.current) clearInterval(timerRef.current)
+      setTimeLeft(TIMER_SECONDS)
+      return
+    }
+    setTimeLeft(TIMER_SECONDS)
+    timerRef.current = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current!)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [step])
+
+  const timerMins = String(Math.floor(timeLeft / 60)).padStart(2, '0')
+  const timerSecs = String(timeLeft % 60).padStart(2, '0')
+  const timerExpired = timeLeft === 0
+  const timerUrgent  = timeLeft <= 60   // last 60 s → red
+  const timerWarning = timeLeft <= 120  // last 2 min → amber
+
   // After booking creation: poll Gemini verification
   const [pendingIds, setPendingIds]       = useState<string[] | null>(null)
   const [pendingGroupId, setPendingGroupId] = useState<string | null>(null)
@@ -276,7 +306,44 @@ export default function VenueBookingGrid({
           ← Edit slots
         </button>
 
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Payment</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Payment</h1>
+
+          {/* ── Countdown timer ── */}
+          {timerExpired ? (
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm font-semibold px-4 py-2 rounded-xl">
+              <span className="text-base">⏱</span>
+              <span>Time expired</span>
+            </div>
+          ) : (
+            <div className={`flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition-colors ${
+              timerUrgent
+                ? 'bg-red-50 border-red-200 text-red-700'
+                : timerWarning
+                  ? 'bg-amber-50 border-amber-200 text-amber-700'
+                  : 'bg-green-50 border-green-200 text-green-700'
+            }`}>
+              <span className={`text-base ${timerUrgent ? 'animate-pulse' : ''}`}>⏱</span>
+              <span className="font-mono text-base">{timerMins}:{timerSecs}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Expired overlay */}
+        {timerExpired && (
+          <div className="mb-5 bg-red-50 border border-red-200 rounded-2xl px-5 py-4 text-center">
+            <p className="text-red-700 font-semibold text-sm">⏱ Time limit reached</p>
+            <p className="text-red-500 text-xs mt-1">
+              Your slip must be uploaded within 5 minutes of payment for security. Please pay again and upload immediately.
+            </p>
+            <button
+              onClick={() => { setTimeLeft(TIMER_SECONDS); setSlipFile(null); setSlipPreview(null); setVerifyError(null) }}
+              className="mt-3 text-xs text-red-600 underline hover:text-red-800"
+            >
+              Restart timer
+            </button>
+          </div>
+        )}
 
         {/* Order summary */}
         <div className="bg-white rounded-2xl border border-gray-200 mb-5 overflow-hidden">
@@ -428,7 +495,7 @@ export default function VenueBookingGrid({
         {/* Verify button */}
         <button
           onClick={handleVerify}
-          disabled={verifying || !slipPreview}
+          disabled={verifying || !slipPreview || timerExpired}
           className="w-full bg-green-600 text-white font-bold py-4 rounded-2xl hover:bg-green-700 transition-colors disabled:opacity-50 text-base flex items-center justify-center gap-2"
         >
           {verifying ? (
