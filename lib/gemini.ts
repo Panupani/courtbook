@@ -5,18 +5,15 @@
 const BASE_V1BETA = 'https://generativelanguage.googleapis.com/v1beta/models'
 const BASE_V1     = 'https://generativelanguage.googleapis.com/v1/models'
 
-// Fallback list if ListModels fails (tried in order)
+// Fallback list if ListModels fails — gemini-2.5-flash first (highest free quota)
 const FALLBACK_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemini-3-flash-preview',
   'gemini-2.0-flash',
-  'gemini-2.0-flash-001',
   'gemini-2.0-flash-lite',
   'gemini-1.5-flash',
-  'gemini-1.5-flash-latest',
-  'gemini-1.5-flash-001',
-  'gemini-1.5-pro',
-  'gemini-1.5-pro-latest',
-  'gemini-1.5-flash-8b',
-  'gemini-1.5-flash-8b-latest',
 ]
 
 export function extractJson(text: string): { valid: boolean; reason: string } | null {
@@ -47,11 +44,19 @@ async function listGeminiModels(apiKey: string): Promise<string[]> {
       )
       .map((m: any) => (m.name as string).replace('models/', ''))
       .sort((a: string, b: string) => {
-        // Prefer 2.x over 1.5; avoid -exp or -preview variants as primary
-        const score = (n: string) =>
-          n.includes('2.0') ? 0 : n.includes('2.') ? 1 : n.includes('1.5') ? 2 : 3
-        return score(a) - score(b)
+        // Prefer 2.5 → 3.x → 2.0 → 1.5; skip TTS/audio-only/image-gen models
+        const skip = (n: string) =>
+          n.includes('tts') || n.includes('computer-use') || n.includes('robotics') ||
+          n.includes('image') ? 99 : 0
+        const gen = (n: string) =>
+          n.includes('2.5') ? 0 : n.includes('3.') ? 1 : n.includes('2.0') ? 2 : n.includes('1.5') ? 3 : 4
+        // prefer non-preview, non-exp, non-lite variants first within same generation
+        const stable = (n: string) =>
+          n.includes('preview') || n.includes('exp') ? 1 : n.includes('lite') ? 0.5 : 0
+        return (skip(a) + gen(a) + stable(a)) - (skip(b) + gen(b) + stable(b))
       })
+      // Remove models that only support audio/images (no text output)
+      .filter((n: string) => !n.includes('tts') && !n.includes('computer-use') && !n.includes('robotics'))
   } catch {
     return []
   }

@@ -5,6 +5,31 @@ import { verifySlipWithGemini } from '@/lib/gemini'
 
 export const maxDuration = 60
 
+function bangkokNow() {
+  const now = new Date()
+  const fiveMinsAgo = new Date(now.getTime() - 5 * 60 * 1000)
+  const parts = (d: Date) => new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Bangkok',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(d)
+  const p = parts(now)
+  const day       = p.find(x => x.type === 'day')!.value
+  const month     = p.find(x => x.type === 'month')!.value
+  const year      = Number(p.find(x => x.type === 'year')!.value)
+  const hour      = p.find(x => x.type === 'hour')!.value
+  const minute    = p.find(x => x.type === 'minute')!.value
+  const monthName = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', month: 'long' }).format(now)
+  const p2        = parts(fiveMinsAgo)
+  return {
+    gregorian:    `${day} ${monthName} ${year}`,
+    buddhistYear:  year + 543,
+    shortDate:    `${day}/${month}/${String(year + 543).slice(-2)}`,
+    currentTime:  `${hour}:${minute}`,
+    windowStart:  `${p2.find(x => x.type === 'hour')!.value}:${p2.find(x => x.type === 'minute')!.value}`,
+  }
+}
+
 export async function POST(req: NextRequest) {
   const ctx = await getAdminContext()
   if (!ctx) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -18,7 +43,7 @@ export async function POST(req: NextRequest) {
 
   const { data: booking, error: bookingErr } = await supabase
     .from('bookings')
-    .select('id, total_price, payment_slip_url, court:courts(venue_id)')
+    .select('id, total_price, payment_slip_url, court:courts(venue_id, venue:venues(name, promptpay_id))')
     .eq('id', bookingId)
     .single()
 
@@ -50,16 +75,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Could not retrieve slip image: ${e?.message}` }, { status: 502 })
   }
 
+  const venue       = (booking.court as any)?.venue as { promptpay_id?: string } | null
+  const promptpayId = venue?.promptpay_id ?? null
+  const dt          = bangkokNow()
+
+  const promptpayRule = promptpayId
+    ? `3. The receiver's PromptPay number on the slip matches (or is a masked version of) ${promptpayId} — digits may be hidden as X but the visible digits must match\n`
+    : ''
+  const dateRuleNum = promptpayId ? '4' : '3'
+
   const prompt = `You are verifying a Thai PromptPay payment slip image.
 
 Reply with ONLY a raw JSON object — no markdown, no code fences, no explanation.
 Format: {"valid": true, "amount": 500, "reason": "one short sentence"}
         {"valid": false, "amount": null, "reason": "one short sentence"}
 
-Rules:
-- valid = true ONLY when the image is a completed Thai bank transfer receipt AND the amount is ฿${Number(booking.total_price).toFixed(2)} (tolerance ±2 THB)
-- valid = false for wrong amount, pending status, non-receipt images
-- reason: one short English sentence (max 15 words)`
+Current Bangkok time: ${dt.currentTime} on ${dt.gregorian} (Buddhist Era year ${dt.buddhistYear}, short date ${dt.shortDate})
+
+Rules — valid = true ONLY when ALL of the following are true:
+1. The image is a completed Thai bank transfer receipt (status = success / โอนสำเร็จ — NOT pending or processing)
+2. The transferred amount is ฿${Number(booking.total_price).toFixed(2)} (tolerance ±2 THB)
+${promptpayRule}${dateRuleNum}. The transfer was made TODAY (${dt.shortDate} or ${dt.gregorian}) AND the time on the slip is between ${dt.windowStart} and ${dt.currentTime} — reject if older than 5 minutes or from a previous day. Note: Thai slips use Buddhist Era year (${dt.buddhistYear}).
+
+valid = false if: wrong amount, pending/processing status, wrong PromptPay number, slip is older than 5 minutes, or from a previous day
+reason: one short English sentence explaining the decision (max 15 words)`
 
   const { result, lastError } = await verifySlipWithGemini(apiKey, prompt, base64Data, mimeType, '[reverify-slip]')
 

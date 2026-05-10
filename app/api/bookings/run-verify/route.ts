@@ -4,6 +4,45 @@ import { verifySlipWithGemini } from '@/lib/gemini'
 
 export const maxDuration = 60
 
+interface DateTimeInfo {
+  gregorian: string     // "10 May 2025"
+  buddhistYear: number  // 2568
+  shortDate: string     // "10/05/68"
+  currentTime: string   // "14:35"
+  windowStart: string   // "14:30"  (5 min ago)
+}
+
+function bangkokNow(): DateTimeInfo {
+  const now = new Date()
+  const fiveMinsAgo = new Date(now.getTime() - 5 * 60 * 1000)
+
+  const parts = (d: Date) => new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Bangkok',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(d)
+
+  const p = parts(now)
+  const day        = p.find(x => x.type === 'day')!.value
+  const month      = p.find(x => x.type === 'month')!.value
+  const year       = Number(p.find(x => x.type === 'year')!.value)
+  const hour       = p.find(x => x.type === 'hour')!.value
+  const minute     = p.find(x => x.type === 'minute')!.value
+  const monthName  = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', month: 'long' }).format(now)
+
+  const p2         = parts(fiveMinsAgo)
+  const wHour      = p2.find(x => x.type === 'hour')!.value
+  const wMinute    = p2.find(x => x.type === 'minute')!.value
+
+  return {
+    gregorian:   `${day} ${monthName} ${year}`,
+    buddhistYear: year + 543,
+    shortDate:   `${day}/${month}/${String(year + 543).slice(-2)}`,
+    currentTime: `${hour}:${minute}`,
+    windowStart: `${wHour}:${wMinute}`,
+  }
+}
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -24,10 +63,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  // Verify these bookings belong to the current user and are still pending
+  // Fetch bookings + venue info (for PromptPay ID and name check)
   const { data: bookings } = await supabase
     .from('bookings')
-    .select('id, status, payment_status')
+    .select('id, status, payment_status, court:courts(venue:venues(name, promptpay_id))')
     .in('id', ids)
     .eq('user_id', user.id)
 
@@ -35,10 +74,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Bookings not found' }, { status: 404 })
   }
 
-  // Already confirmed by a previous poll — return success immediately
+  // Already confirmed by a previous poll — return immediately
   if (bookings.every((b: any) => b.payment_status === 'paid')) {
     return NextResponse.json({ confirmed: true, reason: 'Payment already confirmed.' })
   }
+
+  // Extract venue PromptPay ID for receiver check
+  const venue       = (bookings[0] as any)?.court?.venue as { promptpay_id?: string } | null
+  const promptpayId = venue?.promptpay_id ?? null
 
   // Parse base64 image
   const base64Match = slipImage.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/)
@@ -48,16 +91,29 @@ export async function POST(req: NextRequest) {
   const mimeType   = rawMime === 'image/jpg' ? 'image/jpeg' : rawMime
   const base64Data = base64Match[2]
 
+  const dt = bangkokNow()
+
+  const promptpayRule = promptpayId
+    ? `3. The receiver's PromptPay number on the slip matches (or is a masked version of) ${promptpayId} — digits may be hidden as X but the visible digits must match\n`
+    : ''
+
+  const dateRuleNum = promptpayId ? '4' : '3'
+
   const prompt = `You are verifying a Thai PromptPay payment slip image.
 
 Reply with ONLY a raw JSON object — no markdown, no code fences, no explanation.
 Format: {"valid": true, "amount": 500, "reason": "one short sentence"}
         {"valid": false, "amount": null, "reason": "one short sentence"}
 
-Rules:
-- valid = true ONLY when the image is a completed Thai bank transfer receipt AND the amount is ฿${expectedAmount.toFixed(2)} (tolerance ±2 THB)
-- valid = false for wrong amount, pending status, non-receipt images
-- reason: one short English sentence (max 15 words)`
+Current Bangkok time: ${dt.currentTime} on ${dt.gregorian} (Buddhist Era year ${dt.buddhistYear}, short date ${dt.shortDate})
+
+Rules — valid = true ONLY when ALL of the following are true:
+1. The image is a completed Thai bank transfer receipt (status = success / โอนสำเร็จ — NOT pending or processing)
+2. The transferred amount is ฿${expectedAmount.toFixed(2)} (tolerance ±2 THB)
+${promptpayRule}${dateRuleNum}. The transfer was made TODAY (${dt.shortDate} or ${dt.gregorian}) AND the time on the slip is between ${dt.windowStart} and ${dt.currentTime} — reject if older than 5 minutes or from a previous day. Note: Thai slips use Buddhist Era year (${dt.buddhistYear}).
+
+valid = false if: wrong amount, pending/processing status, wrong PromptPay number, slip is older than 5 minutes, or from a previous day
+reason: one short English sentence explaining the decision (max 15 words)`
 
   const { result, lastError } = await verifySlipWithGemini(apiKey, prompt, base64Data, mimeType, '[run-verify]')
 

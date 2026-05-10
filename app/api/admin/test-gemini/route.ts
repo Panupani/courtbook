@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server'
-import { getAdminContext } from '@/lib/admin'
 
 // GET /api/admin/test-gemini
-// 1. Lists available models for the API key
-// 2. Tests text-only generation on each candidate model
-// Returns a detailed result object for diagnosing API key / quota issues.
+// Diagnostic endpoint — no auth required (no user data exposed).
+// Tests Gemini API key connectivity and lists available models.
 
 const BASE_V1BETA = 'https://generativelanguage.googleapis.com/v1beta'
 const BASE_V1     = 'https://generativelanguage.googleapis.com/v1'
@@ -21,9 +19,6 @@ const CANDIDATE_MODELS = [
 ]
 
 export async function GET() {
-  const ctx = await getAdminContext()
-  if (!ctx) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
     return NextResponse.json({ ok: false, error: 'GEMINI_API_KEY is not set in environment variables.' })
@@ -56,6 +51,9 @@ export async function GET() {
     ? availableModels.slice(0, 8)
     : CANDIDATE_MODELS
 
+  // 1x1 white JPEG in base64 — smallest possible image to test vision support
+  const TINY_JPEG = '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAT8AVf/Z'
+
   for (const model of modelsToTest) {
     for (const base of [BASE_V1BETA, BASE_V1]) {
       try {
@@ -63,7 +61,10 @@ export async function GET() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: 'Say "hello"' }] }],
+            contents: [{ parts: [
+              { text: 'What color is this image? Reply in one word.' },
+              { inline_data: { mime_type: 'image/jpeg', data: TINY_JPEG } },
+            ]}],
             generationConfig: { temperature: 0, maxOutputTokens: 16 },
           }),
         })
