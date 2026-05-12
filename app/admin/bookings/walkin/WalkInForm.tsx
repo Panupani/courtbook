@@ -39,6 +39,7 @@ export default function WalkInForm({ venues, courts }: Props) {
   const [notes, setNotes]               = useState('')
   const [submitting, setSubmitting]     = useState(false)
   const [error, setError]               = useState('')
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const filteredCourts = courts.filter(c => c.venue_id === venueId)
 
@@ -49,7 +50,7 @@ export default function WalkInForm({ venues, courts }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venueId, courts])
 
-  // Load slots when court or date changes
+  // Load slots when court or date changes (full reload — clears selection)
   const loadSlots = useCallback(async () => {
     if (!courtId || !date) return
     setSlotsLoading(true)
@@ -67,6 +68,30 @@ export default function WalkInForm({ venues, courts }: Props) {
   }, [courtId, date])
 
   useEffect(() => { loadSlots() }, [loadSlots])
+
+  // Silently refresh availability every 15 s without clearing selection
+  useEffect(() => {
+    if (!courtId || !date) return
+    const refresh = async () => {
+      setIsRefreshing(true)
+      try {
+        const res = await fetch(`/api/admin/slots?courtId=${courtId}&date=${date}`)
+        if (!res.ok) return
+        const data = await res.json()
+        setSlots(data.slots ?? [])
+        // Remove any selected slots that are no longer available
+        setSelected(prev => prev.filter(s =>
+          (data.slots ?? []).some((fresh: TimeSlot & { isPendingPayment?: boolean }) =>
+            fresh.start === s.start && fresh.available
+          )
+        ))
+      } catch { /* ignore */ } finally {
+        setIsRefreshing(false)
+      }
+    }
+    const id = setInterval(refresh, 15_000)
+    return () => clearInterval(id)
+  }, [courtId, date])
 
   const toggleSlot = (slot: TimeSlot) => {
     if (!slot.available) return
@@ -178,24 +203,35 @@ export default function WalkInForm({ venues, courts }: Props) {
           <p className="text-sm text-gray-400 py-4">No operating hours configured for this day.</p>
         ) : (
           <>
-            <div className="flex gap-4 text-xs mb-3">
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-green-100 border border-green-300 inline-block"/>Available</span>
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-green-500 inline-block"/>Selected</span>
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-gray-200 inline-block"/>Booked</span>
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-100 border border-amber-300 inline-block"/>Peak</span>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-green-100 border border-green-300 inline-block"/>Available</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-green-500 inline-block"/>Selected</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-yellow-100 border border-yellow-300 inline-block"/>Pending payment</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-gray-200 inline-block"/>Booked</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-100 border border-amber-300 inline-block"/>Peak</span>
+              </div>
+              <div className={`flex items-center gap-1.5 text-xs flex-shrink-0 transition-colors ${isRefreshing ? 'text-green-500' : 'text-gray-300'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full inline-block ${isRefreshing ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
+                <span>Live</span>
+              </div>
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-              {slots.map(slot => {
+              {(slots as Array<TimeSlot & { isPendingPayment?: boolean }>).map(slot => {
                 const isSelected = selected.some(s => s.start === slot.start)
+                const isPendingSlot = !slot.available && slot.isPendingPayment
                 return (
                   <button
                     key={slot.start}
                     onClick={() => toggleSlot(slot)}
                     disabled={!slot.available}
+                    title={isPendingSlot ? 'Payment in progress — slot reserved' : undefined}
                     className={`
                       rounded-xl px-2 py-3 text-center text-xs font-medium transition-all border
                       ${!slot.available
-                        ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed line-through'
+                        ? isPendingSlot
+                          ? 'bg-yellow-50 text-yellow-500 border-yellow-200 cursor-not-allowed'
+                          : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed line-through'
                         : isSelected
                           ? 'bg-green-500 text-white border-green-500 shadow-sm'
                           : slot.isPeak
@@ -205,8 +241,10 @@ export default function WalkInForm({ venues, courts }: Props) {
                     `}
                   >
                     <div>{slot.start}</div>
-                    <div className="mt-0.5 font-semibold">{formatPrice(slot.price)}</div>
-                    {slot.isPeak && !isSelected && (
+                    <div className="mt-0.5 font-semibold">
+                      {isPendingSlot ? '⏳' : formatPrice(slot.price)}
+                    </div>
+                    {slot.isPeak && !isSelected && !isPendingSlot && (
                       <div className="text-[9px] text-amber-600 mt-0.5">Peak</div>
                     )}
                   </button>
