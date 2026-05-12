@@ -12,12 +12,12 @@ import SlipViewer from './SlipViewer'
 export default async function AdminBookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; date?: string }>
+  searchParams: Promise<{ status?: string; date?: string; payment_status?: string }>
 }) {
   const ctx = await getAdminContext()
   if (!ctx) redirect('/')
 
-  const { status, date } = await searchParams
+  const { status, date, payment_status } = await searchParams
   const supabase = await createClient()
 
   // For venue admin, get their court IDs
@@ -29,13 +29,14 @@ export default async function AdminBookingsPage({
 
   let query = supabase
     .from('bookings')
-    .select('*, court:courts(name, venue:venues(name)), profile:profiles(full_name, phone), payment_slip_url')
+    .select('*, court:courts(name, venue:venues(name)), profile:profiles(full_name, phone)')
     .order('booking_date', { ascending: false })
     .order('start_time', { ascending: false })
 
-  if (courtIds) query = query.in('court_id', courtIds)
-  if (status && status !== 'all') query = query.eq('status', status)
-  if (date) query = query.eq('booking_date', date)
+  if (courtIds)                              query = query.in('court_id', courtIds)
+  if (status && status !== 'all')            query = query.eq('status', status)
+  if (payment_status && payment_status !== 'all') query = query.eq('payment_status', payment_status)
+  if (date)                                  query = query.eq('booking_date', date)
 
   const { data: bookings } = await query.limit(100)
 
@@ -62,7 +63,7 @@ export default async function AdminBookingsPage({
         </Link>
       </div>
 
-      <BookingFilters initialStatus={status} initialDate={date} />
+      <BookingFilters initialStatus={status} initialDate={date} initialPaymentStatus={payment_status} />
 
       <div className="bg-white rounded-2xl border border-gray-200 overflow-auto">
         {!bookings || bookings.length === 0 ? (
