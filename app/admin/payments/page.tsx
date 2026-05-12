@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getAdminContext } from '@/lib/admin'
 import { formatDate, formatPrice } from '@/lib/utils'
 import ApproveActions from './ApproveActions'
+import AutoRefresh from '@/components/AutoRefresh'
 
 export default async function AdminPaymentsPage() {
   const ctx = await getAdminContext()
@@ -32,7 +33,10 @@ export default async function AdminPaymentsPage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Pending Payments</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">Pending Payments</h1>
+          <AutoRefresh />
+        </div>
         <p className="text-gray-500 text-sm mt-1">
           PromptPay slips waiting for manual review.
         </p>

@@ -6,6 +6,7 @@ import { getAdminContext } from '@/lib/admin'
 import { createClient } from '@/lib/supabase/server'
 import CheckInBoard from './CheckInBoard'
 import DateNav from './DateNav'
+import AutoRefresh from '@/components/AutoRefresh'
 
 export default async function CheckInPage({
   searchParams,
@@ -44,7 +45,10 @@ export default async function CheckInPage({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Check-in</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-gray-900">Check-in</h1>
+            <AutoRefresh />
+          </div>
           <p className="text-sm text-gray-500 mt-0.5">{displayDate}</p>
         </div>
 

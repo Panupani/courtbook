@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getAdminContext } from '@/lib/admin'
 import { formatPrice } from '@/lib/utils'
+import AutoRefresh from '@/components/AutoRefresh'
 
 export default async function AdminDashboard() {
   const ctx = await getAdminContext()
@@ -71,7 +72,10 @@ export default async function AdminDashboard() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">Dashboard</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <AutoRefresh intervalMs={20_000} />
+      </div>
       {!ctx.isSysAdmin && (
         <p className="text-sm text-gray-500 mb-6">Showing data for your assigned venue{ctx.venueIds.length > 1 ? 's' : ''} only.</p>
       )}

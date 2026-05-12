@@ -8,6 +8,7 @@ import { formatDate, formatPrice } from '@/lib/utils'
 import BookingStatusButton from './BookingStatusButton'
 import BookingFilters from './BookingFilters'
 import SlipViewer from './SlipViewer'
+import AutoRefresh from '@/components/AutoRefresh'
 
 export default async function AdminBookingsPage({
   searchParams,
@@ -50,7 +51,10 @@ export default async function AdminBookingsPage({
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Bookings</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-gray-900">Bookings</h1>
+            <AutoRefresh />
+          </div>
           {!ctx.isSysAdmin && (
             <p className="text-sm text-gray-500 mt-1">Showing bookings for your assigned venue{ctx.venueIds.length > 1 ? 's' : ''} only.</p>
           )}
