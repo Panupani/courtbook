@@ -62,6 +62,7 @@ export interface Booking {
   payment_method: PaymentMethod | null
   payment_status: PaymentStatus
   payment_slip_url: string | null
+  transaction_id: string | null
   platform_fee_amount: number
   checked_in_at: string | null
   created_at: string

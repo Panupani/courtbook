@@ -80,9 +80,15 @@ export default async function AdminPaymentsPage() {
                       <p className="font-bold text-green-700 text-lg mt-0.5">{formatPrice(b.total_price)}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Ref</p>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Booking Ref</p>
                       <p className="font-mono text-xs text-gray-500 mt-0.5">{b.id.slice(0,8).toUpperCase()}</p>
                     </div>
+                    {b.transaction_id && (
+                      <div>
+                        <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Transaction Ref</p>
+                        <p className="font-mono text-xs text-gray-700 mt-0.5">{b.transaction_id}</p>
+                      </div>
+                    )}
                     <div>
                       <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Submitted</p>
                       <p className="text-xs text-gray-600 mt-0.5">{new Date(b.created_at).toLocaleString('en-GB')}</p>

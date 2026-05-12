@@ -16,15 +16,18 @@ const FALLBACK_MODELS = [
   'gemini-1.5-flash',
 ]
 
-export function extractJson(text: string): { valid: boolean; reason: string } | null {
+export function extractJson(text: string): { valid: boolean; reason: string; transaction_id: string | null } | null {
   const stripped = text.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim()
   const match = stripped.match(/\{[\s\S]*\}/)
   if (!match) return null
   try {
     const parsed = JSON.parse(match[0])
     return {
-      valid:  parsed.valid === true,
-      reason: typeof parsed.reason === 'string' ? parsed.reason : 'Unable to verify slip',
+      valid:          parsed.valid === true,
+      reason:         typeof parsed.reason === 'string' ? parsed.reason : 'Unable to verify slip',
+      transaction_id: typeof parsed.transaction_id === 'string'
+        ? (parsed.transaction_id.trim() || null)
+        : null,
     }
   } catch {
     return null
@@ -65,6 +68,7 @@ async function listGeminiModels(apiKey: string): Promise<string[]> {
 export interface GeminiResult {
   valid: boolean
   reason: string
+  transaction_id: string | null
 }
 
 /**
@@ -96,7 +100,7 @@ export async function verifySlipWithGemini(
               { text: prompt },
               { inline_data: { mime_type: mimeType, data: base64Data } },
             ]}],
-            generationConfig: { temperature: 0, maxOutputTokens: 256 },
+            generationConfig: { temperature: 0, maxOutputTokens: 300 },
           }),
           signal: AbortSignal.timeout(25_000),
         })

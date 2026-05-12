@@ -89,8 +89,8 @@ export async function POST(req: NextRequest) {
   const prompt = `You are verifying a Thai PromptPay payment slip image for an admin review.
 
 Reply with ONLY a raw JSON object — no markdown, no code fences, no explanation.
-Format: {"valid": true, "amount": 500, "reason": "one short sentence"}
-        {"valid": false, "amount": null, "reason": "one short sentence"}
+Format: {"valid": true, "amount": 500, "transaction_id": "230510XYZ123", "reason": "one short sentence"}
+        {"valid": false, "amount": null, "transaction_id": null,           "reason": "one short sentence"}
 
 Today's date in Bangkok: ${dt.gregorian} (Buddhist Era year ${dt.buddhistYear}, short date ${dt.shortDate})
 
@@ -98,6 +98,8 @@ Rules — valid = true ONLY when ALL of the following are true:
 1. The image is a completed Thai bank transfer receipt (status = success / โอนสำเร็จ — NOT pending or processing)
 2. The transferred amount is ฿${Number(booking.total_price).toFixed(2)} (tolerance ±2 THB)
 ${promptpayRule}${dateRuleNum}. The transfer was made TODAY (${dt.shortDate} or ${dt.gregorian}). Note: Thai slips use Buddhist Era year (${dt.buddhistYear}).
+
+Additionally: extract the bank reference number printed on the slip (labeled รายการอ้างอิง, Ref, Reference, or similar) and return it as transaction_id. If not visible, return null.
 
 valid = false if: wrong amount, pending/processing status, wrong PromptPay number, or slip is from a previous day
 reason: one short English sentence explaining the decision (max 15 words)`
@@ -114,9 +116,31 @@ reason: one short English sentence explaining the decision (max 15 words)`
     return NextResponse.json({ verified: false, reason: result.reason })
   }
 
+  // Duplicate slip check — same transaction_id must not exist on another booking
+  if (result.transaction_id) {
+    const { data: dup } = await supabase
+      .from('bookings')
+      .select('id')
+      .eq('transaction_id', result.transaction_id)
+      .neq('id', bookingId)
+      .limit(1)
+      .maybeSingle()
+
+    if (dup) {
+      return NextResponse.json({
+        verified: false,
+        reason: 'This payment slip has already been used for another booking.',
+      })
+    }
+  }
+
   const { error: updateErr } = await supabase
     .from('bookings')
-    .update({ status: 'confirmed', payment_status: 'paid' })
+    .update({
+      status: 'confirmed',
+      payment_status: 'paid',
+      ...(result.transaction_id ? { transaction_id: result.transaction_id } : {}),
+    })
     .eq('id', bookingId)
 
   if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 400 })
