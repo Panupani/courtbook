@@ -29,7 +29,7 @@ export default function AutoRefresh({ intervalMs = 30_000 }: Props) {
     // ── Realtime broadcast subscription ─────────────────────────────────
     const supabase = createClient()
     const channel = supabase
-      .channel('auto-refresh')
+      .channel('slot-updates')          // must match the topic broadcasts are sent to
       .on('broadcast', { event: 'slot-changed' }, refresh)
       .subscribe()
 

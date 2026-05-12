@@ -68,7 +68,7 @@ export default function VenueBookingGrid({
   const days = useMemo(() => getNextDays(14), [])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Live bookings — initialised from SSR prop, refreshed every 15 s
+  // Live bookings — initialised from SSR prop, refreshed on broadcast + polling
   const courtIds = useMemo(() => courts.map(c => c.id), [courts])
   const [liveBookings, setLiveBookings] = useState<Record<string, SlotBooking[]>>(() => {
     const m: Record<string, SlotBooking[]> = {}
@@ -82,60 +82,55 @@ export default function VenueBookingGrid({
     }
     return m
   })
-  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isRefreshing, setIsRefreshing]     = useState(false)
+  const [rtStatus, setRtStatus]             = useState<'connecting' | 'live' | 'offline'>('connecting')
 
-  // Poll slot availability every 15 seconds
-  useEffect(() => {
+  // Shared fetch — called by both polling and realtime broadcast
+  const fetchSlots = useCallback(async () => {
     if (courtIds.length === 0) return
-
-    const fetchSlots = async () => {
-      setIsRefreshing(true)
-      try {
-        const res = await fetch(`/api/bookings/slots?courtIds=${courtIds.join(',')}`)
-        if (!res.ok) return
-        const { bookings: fresh } = await res.json() as { bookings: SlotBooking[] }
-        const byCourtId: Record<string, SlotBooking[]> = {}
-        for (const c of courts) {
-          byCourtId[c.id] = fresh.filter(b => b.court_id === c.id)
-        }
-        setLiveBookings(byCourtId)
-        setLastRefreshed(new Date())
-      } catch {
-        // silently ignore — stale data is fine
-      } finally {
-        setIsRefreshing(false)
+    setIsRefreshing(true)
+    try {
+      const res = await fetch(`/api/bookings/slots?courtIds=${courtIds.join(',')}`)
+      if (!res.ok) return
+      const { bookings: fresh } = await res.json() as { bookings: SlotBooking[] }
+      const byCourtId: Record<string, SlotBooking[]> = {}
+      for (const c of courts) {
+        byCourtId[c.id] = fresh.filter(b => b.court_id === c.id)
       }
+      setLiveBookings(byCourtId)
+    } catch {
+      // silently ignore — stale data is fine
+    } finally {
+      setIsRefreshing(false)
     }
-
-    const id = setInterval(fetchSlots, 30_000)  // 30 s fallback
-    return () => clearInterval(id)
   }, [courtIds, courts])
 
-  // Real-time: subscribe to slot-updates broadcast channel
+  // Realtime broadcast subscription — instant updates
   useEffect(() => {
+    if (courtIds.length === 0) return
     const supabase = createClient()
     const channel = supabase
       .channel('slot-updates')
       .on('broadcast', { event: 'slot-changed' }, ({ payload }) => {
-        const { courtId, bookingDate, startTime, status } = payload as SlotUpdate
-        if (!courtIds.includes(courtId)) return  // different venue — ignore
-        setLiveBookings(prev => {
-          const existing = prev[courtId] ?? []
-          // Remove old entry for this exact slot
-          const kept = existing.filter(
-            b => !(b.booking_date === bookingDate && b.start_time.slice(0, 5) === startTime)
-          )
-          const next: SlotBooking[] = status === 'cancelled'
-            ? kept
-            : [...kept, { court_id: courtId, booking_date: bookingDate, start_time: startTime, status }]
-          return { ...prev, [courtId]: next }
-        })
+        const { courtId } = payload as SlotUpdate
+        if (!courtIds.includes(courtId)) return   // different venue — ignore
+        fetchSlots()                               // re-fetch full slot state for accuracy
       })
-      .subscribe()
+      .subscribe(status => {
+        if (status === 'SUBSCRIBED')   setRtStatus('live')
+        if (status === 'CLOSED')       setRtStatus('offline')
+        if (status === 'CHANNEL_ERROR') setRtStatus('offline')
+      })
 
     return () => { supabase.removeChannel(channel) }
-  }, [courtIds])
+  }, [courtIds, fetchSlots])
+
+  // Polling fallback every 20 s (catches any missed broadcasts)
+  useEffect(() => {
+    if (courtIds.length === 0) return
+    const id = setInterval(fetchSlots, 20_000)
+    return () => clearInterval(id)
+  }, [courtIds, fetchSlots])
 
   // Slot selection
   const [selectedDate, setSelectedDate] = useState(days[0])
@@ -799,9 +794,19 @@ export default function VenueBookingGrid({
               <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-gray-50 border border-gray-100 inline-block"/>Booked</span>
               <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-green-600 inline-block"/>Selected</span>
             </div>
-            <div className={`flex items-center gap-1.5 flex-shrink-0 transition-colors ${isRefreshing ? 'text-green-500' : 'text-gray-300'}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${isRefreshing ? 'bg-green-500 animate-pulse' : 'bg-gray-300'} inline-block`} />
-              <span>Live</span>
+            <div className={`flex items-center gap-1.5 flex-shrink-0 transition-colors text-xs ${
+              rtStatus === 'live'
+                ? isRefreshing ? 'text-green-500' : 'text-green-400'
+                : rtStatus === 'offline' ? 'text-red-400'
+                : 'text-gray-300'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full inline-block ${
+                rtStatus === 'live'
+                  ? isRefreshing ? 'bg-green-500 animate-pulse' : 'bg-green-400'
+                  : rtStatus === 'offline' ? 'bg-red-400'
+                  : 'bg-gray-300 animate-pulse'
+              }`} />
+              <span>{rtStatus === 'live' ? 'Live' : rtStatus === 'offline' ? 'Offline' : 'Connecting…'}</span>
             </div>
           </div>
         )}
