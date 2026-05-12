@@ -353,18 +353,7 @@ export default function VenueBookingGrid({
         }
       } catch { /* best-effort */ }
 
-      // If timer expired → skip Gemini, go straight to pending booking page
-      if (timerExpired) {
-        setVerifying(false)
-        if (data.ids?.length === 1 && !existingGroupId) {
-          router.push(`/bookings/${data.ids[0]}`)
-        } else {
-          router.push(`/bookings/group/${groupId}`)
-        }
-        return
-      }
-
-      // Normal flow: start polling Gemini verification
+      // Always go through Gemini verification regardless of timer state
       setPendingGroupId(groupId)
       setPendingIds(data.ids)
       setVerifyStatus('Verifying payment…')
@@ -392,9 +381,9 @@ export default function VenueBookingGrid({
 
           {/* ── Countdown timer ── */}
           {timerExpired ? (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm font-semibold px-4 py-2 rounded-xl">
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-sm font-semibold px-4 py-2 rounded-xl">
               <span className="text-base">⏱</span>
-              <span>Time expired</span>
+              <span>Slot hold ended</span>
             </div>
           ) : (
             <div className={`flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition-colors ${
@@ -410,12 +399,12 @@ export default function VenueBookingGrid({
           )}
         </div>
 
-        {/* Expired notice */}
+        {/* Expired notice — slot still held, just remind them to upload */}
         {timerExpired && (
           <div className="mb-5 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
-            <p className="text-amber-800 font-semibold text-sm">⏱ Time limit reached</p>
+            <p className="text-amber-800 font-semibold text-sm">⏱ Slot hold expired</p>
             <p className="text-amber-700 text-xs mt-1">
-              Already paid? You can still upload your slip — your booking will be held for admin review and confirmed once verified.
+              Your slot reservation has ended. Upload your payment slip now — it will still be verified automatically.
             </p>
           </div>
         )}
@@ -571,28 +560,20 @@ export default function VenueBookingGrid({
         <button
           onClick={handleVerify}
           disabled={verifying || !slipPreview}
-          className={`w-full font-bold py-4 rounded-2xl transition-colors disabled:opacity-50 text-base flex items-center justify-center gap-2 ${
-            timerExpired
-              ? 'bg-amber-500 hover:bg-amber-600 text-white'
-              : 'bg-green-600 hover:bg-green-700 text-white'
-          }`}
+          className="w-full font-bold py-4 rounded-2xl transition-colors disabled:opacity-50 text-base flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white"
         >
           {verifying ? (
             <>
               <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               {verifyStatus || 'Verifying slip…'}
             </>
-          ) : timerExpired ? (
-            '📋 Submit for Manual Review'
           ) : (
             '✓ Verify & Confirm Booking'
           )}
         </button>
 
         <p className="text-center text-xs text-gray-400 mt-3">
-          {timerExpired
-            ? 'Your booking will be held and confirmed by admin once the slip is reviewed.'
-            : 'Your slip is verified using AI. Booking is confirmed instantly on success.'}
+          Your slip is verified using AI. Booking is confirmed instantly on success.
         </p>
       </div>
     )

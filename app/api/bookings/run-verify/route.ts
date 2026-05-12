@@ -5,41 +5,27 @@ import { verifySlipWithGemini } from '@/lib/gemini'
 export const maxDuration = 60
 
 interface DateTimeInfo {
-  gregorian: string     // "10 May 2025"
+  gregorian:   string   // "10 May 2025"
   buddhistYear: number  // 2568
-  shortDate: string     // "10/05/68"
-  currentTime: string   // "14:35"
-  windowStart: string   // "14:30"  (5 min ago)
+  shortDate:   string   // "10/05/68"
 }
 
 function bangkokNow(): DateTimeInfo {
   const now = new Date()
-  const fiveMinsAgo = new Date(now.getTime() - 5 * 60 * 1000)
-
-  const parts = (d: Date) => new Intl.DateTimeFormat('en-GB', {
+  const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Bangkok',
     day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', hour12: false,
-  }).formatToParts(d)
+  }).formatToParts(now)
 
-  const p = parts(now)
-  const day        = p.find(x => x.type === 'day')!.value
-  const month      = p.find(x => x.type === 'month')!.value
-  const year       = Number(p.find(x => x.type === 'year')!.value)
-  const hour       = p.find(x => x.type === 'hour')!.value
-  const minute     = p.find(x => x.type === 'minute')!.value
-  const monthName  = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', month: 'long' }).format(now)
-
-  const p2         = parts(fiveMinsAgo)
-  const wHour      = p2.find(x => x.type === 'hour')!.value
-  const wMinute    = p2.find(x => x.type === 'minute')!.value
+  const day      = parts.find(x => x.type === 'day')!.value
+  const month    = parts.find(x => x.type === 'month')!.value
+  const year     = Number(parts.find(x => x.type === 'year')!.value)
+  const monthName = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', month: 'long' }).format(now)
 
   return {
-    gregorian:   `${day} ${monthName} ${year}`,
-    buddhistYear: year + 543,
-    shortDate:   `${day}/${month}/${String(year + 543).slice(-2)}`,
-    currentTime: `${hour}:${minute}`,
-    windowStart: `${wHour}:${wMinute}`,
+    gregorian:    `${day} ${monthName} ${year}`,
+    buddhistYear:  year + 543,
+    shortDate:    `${day}/${month}/${String(year + 543).slice(-2)}`,
   }
 }
 
@@ -105,16 +91,16 @@ Reply with ONLY a raw JSON object — no markdown, no code fences, no explanatio
 Format: {"valid": true, "amount": 500, "transaction_id": "230510XYZ123", "reason": "one short sentence"}
         {"valid": false, "amount": null, "transaction_id": null,           "reason": "one short sentence"}
 
-Current Bangkok time: ${dt.currentTime} on ${dt.gregorian} (Buddhist Era year ${dt.buddhistYear}, short date ${dt.shortDate})
+Today's date in Bangkok: ${dt.gregorian} (Buddhist Era year ${dt.buddhistYear}, short date ${dt.shortDate})
 
 Rules — valid = true ONLY when ALL of the following are true:
 1. The image is a completed Thai bank transfer receipt (status = success / โอนสำเร็จ — NOT pending or processing)
 2. The transferred amount is ฿${expectedAmount.toFixed(2)} (tolerance ±2 THB)
-${promptpayRule}${dateRuleNum}. The transfer was made TODAY (${dt.shortDate} or ${dt.gregorian}) AND the time on the slip is between ${dt.windowStart} and ${dt.currentTime} — reject if older than 5 minutes or from a previous day. Note: Thai slips use Buddhist Era year (${dt.buddhistYear}).
+${promptpayRule}${dateRuleNum}. The transfer was made TODAY (${dt.shortDate} or ${dt.gregorian}). Note: Thai slips use Buddhist Era year (${dt.buddhistYear}).
 
 Additionally: extract the bank reference number printed on the slip (labeled รายการอ้างอิง, Ref, Reference, or similar) and return it as transaction_id. If not visible, return null.
 
-valid = false if: wrong amount, pending/processing status, wrong PromptPay number, slip is older than 5 minutes, or from a previous day
+valid = false if: wrong amount, pending/processing status, wrong PromptPay number, or slip is from a previous day
 reason: one short English sentence explaining the decision (max 15 words)`
 
   const { result, lastError } = await verifySlipWithGemini(apiKey, prompt, base64Data, mimeType, '[run-verify]')
