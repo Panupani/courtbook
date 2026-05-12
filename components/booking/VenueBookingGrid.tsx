@@ -14,6 +14,16 @@ interface CartItem {
   slot: TimeSlot
 }
 
+// Minimal shape returned by the /api/bookings/slots endpoint
+interface SlotBooking {
+  court_id: string
+  booking_date: string
+  start_time: string
+  status: string
+}
+
+type SlotMeta = TimeSlot & { isPendingPayment: boolean }
+
 interface Props {
   venue: Venue
   courts: Court[]
@@ -55,6 +65,50 @@ export default function VenueBookingGrid({
   const router = useRouter()
   const days = useMemo(() => getNextDays(14), [])
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Live bookings — initialised from SSR prop, refreshed every 15 s
+  const courtIds = useMemo(() => courts.map(c => c.id), [courts])
+  const [liveBookings, setLiveBookings] = useState<Record<string, SlotBooking[]>>(() => {
+    const m: Record<string, SlotBooking[]> = {}
+    for (const c of courts) {
+      m[c.id] = (bookingsByCourt[c.id] ?? []).map(b => ({
+        court_id: b.court_id,
+        booking_date: b.booking_date,
+        start_time: b.start_time,
+        status: b.status,
+      }))
+    }
+    return m
+  })
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Poll slot availability every 15 seconds
+  useEffect(() => {
+    if (courtIds.length === 0) return
+
+    const fetchSlots = async () => {
+      setIsRefreshing(true)
+      try {
+        const res = await fetch(`/api/bookings/slots?courtIds=${courtIds.join(',')}`)
+        if (!res.ok) return
+        const { bookings: fresh } = await res.json() as { bookings: SlotBooking[] }
+        const byCourtId: Record<string, SlotBooking[]> = {}
+        for (const c of courts) {
+          byCourtId[c.id] = fresh.filter(b => b.court_id === c.id)
+        }
+        setLiveBookings(byCourtId)
+        setLastRefreshed(new Date())
+      } catch {
+        // silently ignore — stale data is fine
+      } finally {
+        setIsRefreshing(false)
+      }
+    }
+
+    const id = setInterval(fetchSlots, 15_000)
+    return () => clearInterval(id)
+  }, [courtIds, courts])
 
   // Slot selection
   const [selectedDate, setSelectedDate] = useState(days[0])
@@ -179,24 +233,28 @@ export default function VenueBookingGrid({
   const dayOfWeek = new Date(selectedDate + 'T00:00:00').getDay()
 
   const slotsByCourt = useMemo(() => {
-    const result: Record<string, TimeSlot[]> = {}
+    const result: Record<string, SlotMeta[]> = {}
     for (const court of courts) {
       const hours = hoursByCourt[court.id] ?? []
       const dayHours = hours.find(h => h.day_of_week === dayOfWeek)
       if (!dayHours) { result[court.id] = []; continue }
       const slots = generateSlots(dayHours, court.hourly_rate)
-      const existing = bookingsByCourt[court.id] ?? []
-      result[court.id] = slots.map(slot => ({
-        ...slot,
-        available: !existing.some(
+      const existing = liveBookings[court.id] ?? []
+      result[court.id] = slots.map(slot => {
+        const blocker = existing.find(
           b => b.booking_date === selectedDate &&
                b.start_time.slice(0, 5) === slot.start &&
                b.status !== 'cancelled'
-        ),
-      }))
+        )
+        return {
+          ...slot,
+          available: !blocker,
+          isPendingPayment: !!blocker && blocker.status === 'pending',
+        }
+      })
     }
     return result
-  }, [courts, hoursByCourt, bookingsByCourt, selectedDate, dayOfWeek])
+  }, [courts, hoursByCourt, liveBookings, selectedDate, dayOfWeek])
 
   const toggleSlot = useCallback((court: Court, slot: TimeSlot) => {
     if (!slot.available) return
@@ -281,6 +339,19 @@ export default function VenueBookingGrid({
         setVerifying(false)
         return
       }
+
+      // Refresh slots immediately so the just-created pending booking is visible to others
+      try {
+        const slotsRes = await fetch(`/api/bookings/slots?courtIds=${courtIds.join(',')}`)
+        if (slotsRes.ok) {
+          const { bookings: fresh } = await slotsRes.json() as { bookings: SlotBooking[] }
+          const byCourtId: Record<string, SlotBooking[]> = {}
+          for (const c of courts) {
+            byCourtId[c.id] = fresh.filter(b => b.court_id === c.id)
+          }
+          setLiveBookings(byCourtId)
+        }
+      } catch { /* best-effort */ }
 
       // If timer expired → skip Gemini, go straight to pending booking page
       if (timerExpired) {
@@ -591,14 +662,18 @@ export default function VenueBookingGrid({
                   {slots.map(slot => {
                     const inCart = isInCart(court.id, slot)
                     const unavailable = !slot.available
+                    const isPendingSlot = unavailable && slot.isPendingPayment
                     return (
                       <button
                         key={slot.start}
                         disabled={unavailable}
                         onClick={() => toggleSlot(court, slot)}
+                        title={isPendingSlot ? 'Payment in progress — slot reserved' : undefined}
                         className={`flex flex-col items-center px-3 py-2 rounded-xl text-xs font-medium transition-all border ${
                           unavailable
-                            ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed line-through'
+                            ? isPendingSlot
+                              ? 'bg-amber-50 text-amber-400 border-amber-200 cursor-not-allowed'
+                              : 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed line-through'
                             : inCart
                             ? slot.isPeak
                               ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
@@ -609,8 +684,13 @@ export default function VenueBookingGrid({
                         }`}
                       >
                         <span>{slot.start}</span>
-                        <span className={`text-[10px] mt-0.5 ${inCart ? 'text-white/80' : slot.isPeak ? 'text-orange-500' : 'text-gray-400'}`}>
-                          {formatPrice(slot.price)}
+                        <span className={`text-[10px] mt-0.5 ${
+                          inCart ? 'text-white/80'
+                            : isPendingSlot ? 'text-amber-400'
+                            : slot.isPeak ? 'text-orange-500'
+                            : 'text-gray-400'
+                        }`}>
+                          {isPendingSlot ? '⏳' : formatPrice(slot.price)}
                         </span>
                       </button>
                     )
@@ -664,11 +744,18 @@ export default function VenueBookingGrid({
             </div>
           </div>
         ) : (
-          <div className="bg-white border-t border-gray-100 px-4 py-3 flex items-center gap-4 text-xs text-gray-400 max-w-7xl mx-auto w-full">
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-white border border-gray-200 inline-block"/>Available</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-orange-50 border border-orange-200 inline-block"/>Peak</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-gray-50 border border-gray-100 inline-block"/>Booked</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-green-600 inline-block"/>Selected</span>
+          <div className="bg-white border-t border-gray-100 px-4 py-3 flex items-center justify-between gap-4 text-xs text-gray-400 max-w-7xl mx-auto w-full">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-white border border-gray-200 inline-block"/>Available</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-orange-50 border border-orange-200 inline-block"/>Peak</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-50 border border-amber-200 inline-block"/>Pending payment</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-gray-50 border border-gray-100 inline-block"/>Booked</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-green-600 inline-block"/>Selected</span>
+            </div>
+            <div className={`flex items-center gap-1.5 flex-shrink-0 transition-colors ${isRefreshing ? 'text-green-500' : 'text-gray-300'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${isRefreshing ? 'bg-green-500 animate-pulse' : 'bg-gray-300'} inline-block`} />
+              <span>Live</span>
+            </div>
           </div>
         )}
       </div>
