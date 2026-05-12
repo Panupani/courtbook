@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getAdminContext } from '@/lib/admin'
+import { broadcastSlotUpdates } from '@/lib/supabase/broadcast'
 
 export async function POST(req: NextRequest) {
   const ctx = await getAdminContext()
@@ -72,6 +73,14 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
+
+  // Broadcast confirmed so customer-facing grids update instantly
+  broadcastSlotUpdates(rows.map(r => ({
+    courtId:     r.court_id,
+    bookingDate: r.booking_date,
+    startTime:   String(r.start_time).slice(0, 5),
+    status:      'confirmed',
+  })))
 
   return NextResponse.json({ ok: true, ids: (data ?? []).map((b: { id: string }) => b.id) })
 }

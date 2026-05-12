@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getAdminContext } from '@/lib/admin'
 import { verifySlipWithGemini } from '@/lib/gemini'
+import { broadcastSlotUpdates } from '@/lib/supabase/broadcast'
 
 export const maxDuration = 60
 
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
 
   const { data: booking, error: bookingErr } = await supabase
     .from('bookings')
-    .select('id, total_price, payment_slip_url, court:courts(venue_id, venue:venues(name, promptpay_id))')
+    .select('id, total_price, payment_slip_url, court_id, booking_date, start_time, court:courts(venue_id, venue:venues(name, promptpay_id))')
     .eq('id', bookingId)
     .single()
 
@@ -144,6 +145,13 @@ reason: one short English sentence explaining the decision (max 15 words)`
     .eq('id', bookingId)
 
   if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 400 })
+
+  broadcastSlotUpdates([{
+    courtId:     (booking as any).court_id,
+    bookingDate: (booking as any).booking_date,
+    startTime:   String((booking as any).start_time).slice(0, 5),
+    status:      'confirmed',
+  }])
 
   return NextResponse.json({ verified: true, reason: result.reason })
 }

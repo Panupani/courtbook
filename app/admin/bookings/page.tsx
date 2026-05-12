@@ -111,7 +111,14 @@ export default async function AdminBookingsPage({
                     }
                   </td>
                   <td className="px-5 py-4 text-right">
-                    {b.status !== 'cancelled' && <BookingStatusButton id={b.id} />}
+                    {b.status !== 'cancelled' && (
+                      <BookingStatusButton
+                        id={b.id}
+                        courtId={b.court_id}
+                        bookingDate={b.booking_date}
+                        startTime={b.start_time.slice(0, 5)}
+                      />
+                    )}
                   </td>
                 </tr>
               ))}

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { QRCodeSVG } from 'qrcode.react'
 import type { Court, OperatingHours, Booking, TimeSlot, Venue } from '@/lib/types'
 import { generateSlots, formatPrice, formatDate, promptPayPayload } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
+import type { SlotUpdate } from '@/lib/supabase/broadcast'
 
 type Step = 'select' | 'checkout'
 
@@ -106,9 +108,34 @@ export default function VenueBookingGrid({
       }
     }
 
-    const id = setInterval(fetchSlots, 15_000)
+    const id = setInterval(fetchSlots, 30_000)  // 30 s fallback
     return () => clearInterval(id)
   }, [courtIds, courts])
+
+  // Real-time: subscribe to slot-updates broadcast channel
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel('slot-updates')
+      .on('broadcast', { event: 'slot-changed' }, ({ payload }) => {
+        const { courtId, bookingDate, startTime, status } = payload as SlotUpdate
+        if (!courtIds.includes(courtId)) return  // different venue — ignore
+        setLiveBookings(prev => {
+          const existing = prev[courtId] ?? []
+          // Remove old entry for this exact slot
+          const kept = existing.filter(
+            b => !(b.booking_date === bookingDate && b.start_time.slice(0, 5) === startTime)
+          )
+          const next: SlotBooking[] = status === 'cancelled'
+            ? kept
+            : [...kept, { court_id: courtId, booking_date: bookingDate, start_time: startTime, status }]
+          return { ...prev, [courtId]: next }
+        })
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [courtIds])
 
   // Slot selection
   const [selectedDate, setSelectedDate] = useState(days[0])

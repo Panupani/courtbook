@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatPrice } from '@/lib/utils'
 import type { TimeSlot } from '@/lib/types'
+import { createClient } from '@/lib/supabase/client'
+import type { SlotUpdate } from '@/lib/supabase/broadcast'
 
 interface Venue { id: string; name: string }
 interface Court { id: string; name: string; hourly_rate: number; venue_id: string }
@@ -69,29 +71,47 @@ export default function WalkInForm({ venues, courts }: Props) {
 
   useEffect(() => { loadSlots() }, [loadSlots])
 
-  // Silently refresh availability every 15 s without clearing selection
+  // Shared silent-refresh — used by both realtime subscription and polling timer
+  const silentRefresh = useCallback(async () => {
+    if (!courtId || !date) return
+    setIsRefreshing(true)
+    try {
+      const res = await fetch(`/api/admin/slots?courtId=${courtId}&date=${date}`)
+      if (!res.ok) return
+      const data = await res.json()
+      setSlots(data.slots ?? [])
+      // Remove any selected slots that are no longer available
+      setSelected(prev => prev.filter(s =>
+        (data.slots ?? []).some((fresh: TimeSlot & { isPendingPayment?: boolean }) =>
+          fresh.start === s.start && fresh.available
+        )
+      ))
+    } catch { /* ignore */ } finally {
+      setIsRefreshing(false)
+    }
+  }, [courtId, date])
+
+  // Real-time: subscribe to slot-updates broadcast — instant updates
   useEffect(() => {
     if (!courtId || !date) return
-    const refresh = async () => {
-      setIsRefreshing(true)
-      try {
-        const res = await fetch(`/api/admin/slots?courtId=${courtId}&date=${date}`)
-        if (!res.ok) return
-        const data = await res.json()
-        setSlots(data.slots ?? [])
-        // Remove any selected slots that are no longer available
-        setSelected(prev => prev.filter(s =>
-          (data.slots ?? []).some((fresh: TimeSlot & { isPendingPayment?: boolean }) =>
-            fresh.start === s.start && fresh.available
-          )
-        ))
-      } catch { /* ignore */ } finally {
-        setIsRefreshing(false)
-      }
-    }
-    const id = setInterval(refresh, 15_000)
+    const supabase = createClient()
+    const channel = supabase
+      .channel('slot-updates')
+      .on('broadcast', { event: 'slot-changed' }, ({ payload }) => {
+        const { courtId: changedCourt, bookingDate } = payload as SlotUpdate
+        if (changedCourt !== courtId || bookingDate !== date) return
+        silentRefresh()
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [courtId, date, silentRefresh])
+
+  // Polling fallback every 30 s
+  useEffect(() => {
+    if (!courtId || !date) return
+    const id = setInterval(silentRefresh, 30_000)
     return () => clearInterval(id)
-  }, [courtId, date])
+  }, [courtId, date, silentRefresh])
 
   const toggleSlot = (slot: TimeSlot) => {
     if (!slot.available) return

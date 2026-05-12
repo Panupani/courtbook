@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { broadcastSlotUpdates } from '@/lib/supabase/broadcast'
 
 // ── Step 1 of 2: upload slip + create bookings (pending status) ──────────────
 // Gemini verification is intentionally NOT called here so that booking creation
@@ -110,6 +111,14 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
+
+  // Broadcast pending status so other clients block these slots immediately
+  broadcastSlotUpdates(rows.map((r: any) => ({
+    courtId:     r.court_id,
+    bookingDate: r.booking_date,
+    startTime:   String(r.start_time).slice(0, 5),
+    status:      'pending',
+  })))
 
   return NextResponse.json({
     ids: data.map((r: { id: string }) => r.id),
