@@ -49,13 +49,15 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { bookings, slipImage, expectedAmount } = body as {
-    bookings: Record<string, unknown>[]
+  const { bookings, holdIds, slipImage, expectedAmount } = body as {
+    bookings?: Record<string, unknown>[]
+    holdIds?:  string[]
     slipImage: string
     expectedAmount: number
   }
 
-  if (!slipImage || !Array.isArray(bookings) || bookings.length === 0) {
+  const hasHold = Array.isArray(holdIds) && holdIds.length > 0
+  if (!slipImage || (!hasHold && (!Array.isArray(bookings) || bookings.length === 0))) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
@@ -79,19 +81,45 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Fetch fee rate from first booking's court venue
+  // ── PATH A: hold bookings already exist — just attach the slip ─────────────
+  if (hasHold) {
+    const { data: held, error: fetchErr } = await supabase
+      .from('bookings')
+      .select('id')
+      .in('id', holdIds!)
+      .eq('user_id', user.id)
+      .eq('payment_status', 'unpaid')   // must be an unattached hold
+
+    if (fetchErr || !held || held.length !== holdIds!.length) {
+      return NextResponse.json(
+        { error: 'Hold bookings not found or already processed.' },
+        { status: 404 }
+      )
+    }
+
+    const { error: updateErr } = await supabase
+      .from('bookings')
+      .update({ payment_slip_url: slipUrl, payment_method: 'promptpay', payment_status: 'pending' })
+      .in('id', holdIds!)
+      .eq('user_id', user.id)
+
+    if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 400 })
+
+    return NextResponse.json({ ids: holdIds, slipUrl, pending: true })
+  }
+
+  // ── PATH B: no hold — insert new pending bookings (legacy / fallback) ───────
   let feeRate = 0.05
-  if (bookings[0]?.court_id) {
+  if (bookings![0]?.court_id) {
     const { data: courtData } = await supabase
       .from('courts')
       .select('venue:venues(platform_fee_rate)')
-      .eq('id', bookings[0].court_id as string)
+      .eq('id', bookings![0].court_id as string)
       .single()
     feeRate = (courtData?.venue as any)?.platform_fee_rate ?? 0.05
   }
 
-  // Create bookings as pending — verification happens in /api/bookings/run-verify
-  const rows = bookings.map((b: any) => ({
+  const rows = bookings!.map((b: any) => ({
     ...b,
     user_id:             user.id,
     payment_method:      'promptpay',
@@ -112,7 +140,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 
-  // Broadcast pending status so other clients block these slots immediately
+  // Broadcast pending so other clients see these slots blocked
   broadcastSlotUpdates(rows.map((r: any) => ({
     courtId:     r.court_id,
     bookingDate: r.booking_date,

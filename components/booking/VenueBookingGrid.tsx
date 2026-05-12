@@ -313,14 +313,65 @@ export default function VenueBookingGrid({
     return map
   }, [cart])
 
-  function proceedToCheckout() {
+  // Hold IDs: created on "Proceed to Payment", cancelled on "← Edit slots"
+  const [holdIds,    setHoldIds]    = useState<string[] | null>(null)
+  const [holdGroupId, setHoldGroupId] = useState<string | null>(null)
+  const [holdLoading, setHoldLoading] = useState(false)
+
+  async function proceedToCheckout() {
     if (!userId) { router.push('/login'); return }
     if (cart.length === 0) return
+    setHoldLoading(true)
     setVerifyError(null)
-    setSlipFile(null)
-    setSlipPreview(null)
-    setStep('checkout')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+
+    try {
+      const groupId = existingGroupId ?? crypto.randomUUID()
+      const res = await fetch('/api/bookings/hold', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupId,
+          bookings: cart.map(item => ({
+            court_id:     item.courtId,
+            booking_date: selectedDate,
+            start_time:   item.slot.start,
+            end_time:     item.slot.end,
+            total_price:  item.slot.price,
+            notes:        notes || null,
+          })),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setVerifyError(data.error ?? 'Could not reserve slots. Please try again.')
+        return
+      }
+      setHoldIds(data.ids)
+      setHoldGroupId(groupId)
+      setSlipFile(null)
+      setSlipPreview(null)
+      setStep('checkout')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch {
+      setVerifyError('Network error. Please try again.')
+    } finally {
+      setHoldLoading(false)
+    }
+  }
+
+  async function cancelHoldAndGoBack() {
+    setVerifyError(null)
+    if (holdIds && holdIds.length > 0) {
+      // Fire-and-forget cancel — don't block UI
+      fetch('/api/bookings/hold', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: holdIds }),
+      }).catch(() => {})
+    }
+    setHoldIds(null)
+    setHoldGroupId(null)
+    setStep('select')
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -337,51 +388,31 @@ export default function VenueBookingGrid({
     if (!slipPreview) { setVerifyError('Please upload your payment slip first'); return }
     setVerifying(true)
     setVerifyError(null)
-    setVerifyStatus(timerExpired ? 'Submitting for manual review…' : 'Saving booking…')
+    setVerifyStatus('Uploading slip…')
 
     try {
-      const groupId = existingGroupId ?? crypto.randomUUID()
-      const rows = cart.map(item => ({
-        user_id: userId,
-        court_id: item.courtId,
-        booking_date: selectedDate,
-        start_time: item.slot.start,
-        end_time: item.slot.end,
-        total_price: item.slot.price,
-        status: 'pending',
-        notes: notes || null,
-        group_id: groupId,
-      }))
-
+      // holdIds always exist (set in proceedToCheckout) — pass them so verify-slip
+      // attaches the slip to the already-created hold bookings instead of inserting new ones.
       const res = await fetch('/api/bookings/verify-slip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookings: rows, slipImage: slipPreview, expectedAmount: cartTotal }),
+        body: JSON.stringify({
+          holdIds,
+          slipImage:      slipPreview,
+          expectedAmount: cartTotal,
+        }),
       })
 
       const data = await res.json()
 
       if (!res.ok) {
-        setVerifyError(data.error ?? 'Booking failed. Please try again.')
+        setVerifyError(data.error ?? 'Failed to process slip. Please try again.')
         setVerifying(false)
         return
       }
 
-      // Refresh slots immediately so the just-created pending booking is visible to others
-      try {
-        const slotsRes = await fetch(`/api/bookings/slots?courtIds=${courtIds.join(',')}`)
-        if (slotsRes.ok) {
-          const { bookings: fresh } = await slotsRes.json() as { bookings: SlotBooking[] }
-          const byCourtId: Record<string, SlotBooking[]> = {}
-          for (const c of courts) {
-            byCourtId[c.id] = fresh.filter(b => b.court_id === c.id)
-          }
-          setLiveBookings(byCourtId)
-        }
-      } catch { /* best-effort */ }
-
-      // Always go through Gemini verification regardless of timer state
-      setPendingGroupId(groupId)
+      // Start polling Gemini verification
+      setPendingGroupId(holdGroupId ?? existingGroupId ?? null)
       setPendingIds(data.ids)
       setVerifyStatus('Verifying payment…')
     } catch {
@@ -397,7 +428,7 @@ export default function VenueBookingGrid({
     return (
       <div className="max-w-md mx-auto pb-16">
         <button
-          onClick={() => { setStep('select'); setVerifyError(null) }}
+          onClick={cancelHoldAndGoBack}
           className="mb-6 text-sm text-gray-500 hover:text-green-600 flex items-center gap-1"
         >
           ← Edit slots
@@ -606,7 +637,7 @@ export default function VenueBookingGrid({
     )
   }
 
-  // ── SLOT SELECTION STEP ──────────────────────────────────────────────
+  // ── SLOT SELECTION STEP ─────────────────────────────────────────────
   return (
     <div className="flex flex-col gap-0">
       <div className="mb-6">
@@ -738,6 +769,9 @@ export default function VenueBookingGrid({
                 </div>
               ))}
             </div>
+            {verifyError && (
+              <p className="text-xs text-red-600 mb-2 bg-red-50 rounded-lg px-3 py-1.5">{verifyError}</p>
+            )}
             <div className="flex items-center gap-3">
               <div className="flex-1">
                 <p className="text-xs text-gray-400">{cart.length} slot{cart.length > 1 ? 's' : ''} · {formatDate(selectedDate)}</p>
@@ -745,9 +779,14 @@ export default function VenueBookingGrid({
               </div>
               <button
                 onClick={proceedToCheckout}
-                className="flex-shrink-0 bg-green-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-green-700 transition-colors"
+                disabled={holdLoading}
+                className="flex-shrink-0 bg-green-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-green-700 disabled:opacity-60 transition-colors flex items-center gap-2"
               >
-                Proceed to Payment →
+                {holdLoading ? (
+                  <><span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Reserving…</>
+                ) : (
+                  'Proceed to Payment →'
+                )}
               </button>
             </div>
           </div>
