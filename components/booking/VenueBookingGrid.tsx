@@ -68,7 +68,6 @@ export default function VenueBookingGrid({
   const days = useMemo(() => getNextDays(14), [])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Live bookings — initialised from SSR prop, refreshed on broadcast + polling
   const courtIds = useMemo(() => courts.map(c => c.id), [courts])
   const [liveBookings, setLiveBookings] = useState<Record<string, SlotBooking[]>>(() => {
     const m: Record<string, SlotBooking[]> = {}
@@ -82,71 +81,76 @@ export default function VenueBookingGrid({
     }
     return m
   })
-  const [isRefreshing, setIsRefreshing]     = useState(false)
-  const [rtStatus, setRtStatus]             = useState<'connecting' | 'live' | 'offline'>('connecting')
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [rtStatus, setRtStatus]         = useState<'connecting' | 'live' | 'offline'>('connecting')
 
-  // Shared fetch — called by both polling and realtime broadcast
-  const fetchSlots = useCallback(async () => {
+  // Background fetch — no spinner. Used by subscriptions and polling.
+  const fetchSlotsQuiet = useCallback(async () => {
     if (courtIds.length === 0) return
-    setIsRefreshing(true)
     try {
       const res = await fetch(`/api/bookings/slots?courtIds=${courtIds.join(',')}`)
       if (!res.ok) return
       const { bookings: fresh } = await res.json() as { bookings: SlotBooking[] }
       const byCourtId: Record<string, SlotBooking[]> = {}
-      for (const c of courts) {
-        byCourtId[c.id] = fresh.filter(b => b.court_id === c.id)
-      }
+      for (const c of courts) byCourtId[c.id] = fresh.filter(b => b.court_id === c.id)
       setLiveBookings(byCourtId)
-    } catch {
-      // silently ignore — stale data is fine
-    } finally {
-      setIsRefreshing(false)
-    }
+    } catch {}
   }, [courtIds, courts])
 
-  // Realtime: postgres_changes on bookings table — fires the instant the DB row changes.
-  // This is more reliable than HTTP broadcast because it's driven by the DB write itself.
-  // We also keep the HTTP broadcast as a secondary channel (received via AutoRefresh on
-  // admin pages) so admins see updates too.
+  // Manual refresh — shows spinner on the Refresh button.
+  const fetchSlots = useCallback(async () => {
+    setIsRefreshing(true)
+    await fetchSlotsQuiet()
+    setIsRefreshing(false)
+  }, [fetchSlotsQuiet])
+
+  // Debounce ref: postgres_changes + broadcast fire together on the same booking
+  // change, so we coalesce them into one fetch.
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const fetchSlotsDebounced = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(fetchSlotsQuiet, 300)
+  }, [fetchSlotsQuiet])
+
+  // stepRef lets polling read the current step without being a dependency
+  // (adding step would restart the interval on every checkout transition).
+  const stepRef = useRef<Step>('select')
+
   useEffect(() => {
     if (courtIds.length === 0) return
     const supabase = createClient()
-
     const channel = supabase
       .channel('slot-updates')
-      // Native DB changes — triggers on INSERT (new hold), UPDATE (confirm/cancel), DELETE
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'bookings' },
         (payload) => {
-          // Filter to courts on this venue only
           const record = (payload.new ?? payload.old) as any
           if (!record?.court_id || !courtIds.includes(record.court_id)) return
-          fetchSlots()
+          fetchSlotsDebounced()
         }
       )
-      // Also listen to HTTP broadcasts (e.g. from admin actions)
       .on('broadcast', { event: 'slot-changed' }, ({ payload }) => {
         const { courtId } = payload as SlotUpdate
         if (!courtIds.includes(courtId)) return
-        fetchSlots()
+        fetchSlotsDebounced()
       })
       .subscribe(status => {
         if (status === 'SUBSCRIBED')    setRtStatus('live')
         if (status === 'CLOSED')        setRtStatus('offline')
         if (status === 'CHANNEL_ERROR') setRtStatus('offline')
       })
-
     return () => { supabase.removeChannel(channel) }
-  }, [courtIds, fetchSlots])
+  }, [courtIds, fetchSlotsDebounced])
 
-  // Polling fallback every 20 s (catches any missed broadcasts)
+  // Polling fallback every 20 s — skipped during checkout (slot grid not visible).
   useEffect(() => {
     if (courtIds.length === 0) return
-    const id = setInterval(fetchSlots, 20_000)
+    const id = setInterval(() => {
+      if (stepRef.current !== 'checkout') fetchSlotsQuiet()
+    }, 20_000)
     return () => clearInterval(id)
-  }, [courtIds, fetchSlots])
+  }, [courtIds, fetchSlotsQuiet])
 
   // Slot selection
   const [selectedDate, setSelectedDate] = useState(days[0])
@@ -155,6 +159,7 @@ export default function VenueBookingGrid({
 
   // Checkout / payment
   const [step, setStep] = useState<Step>('select')
+  useEffect(() => { stepRef.current = step }, [step])
   const [slipFile, setSlipFile] = useState<File | null>(null)
   const [slipPreview, setSlipPreview] = useState<string | null>(null)
   const [verifying, setVerifying] = useState(false)
