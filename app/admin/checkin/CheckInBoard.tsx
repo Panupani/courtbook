@@ -60,19 +60,18 @@ export default function CheckInBoard({ bookings: initial, date }: Props) {
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'checked-in'>('all')
 
-  // Sync server-delivered props into local state so router.refresh() updates land here
+  // Without this, router.refresh() from AutoRefresh delivers new props that useState ignores
   useEffect(() => {
     setBookings(initial)
   }, [initial])
 
-  // Clock ticker — re-renders every 60 s so time-based statuses (upcoming → no-show) stay current
+  // Forces re-render every 60 s so slotStatus() recalculates upcoming → no-show as time passes
   const [, setTick] = useState(0)
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 60_000)
     return () => clearInterval(id)
   }, [])
 
-  // Realtime: postgres_changes for the selected date — router.refresh() on any booking change
   useEffect(() => {
     const supabase = createClient()
     const channel = supabase
