@@ -56,9 +56,13 @@ export async function POST(req: NextRequest) {
     .select('id, status, payment_status, court_id, booking_date, start_time, court:courts(venue:venues(name, promptpay_id))')
     .in('id', ids)
     .eq('user_id', user.id)
+    .neq('status', 'cancelled')
 
   if (!bookings || bookings.length !== ids.length) {
-    return NextResponse.json({ error: 'Bookings not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: 'Your slot hold has expired. Please go back and select new slots.' },
+      { status: 404 }
+    )
   }
 
   // Already confirmed by a previous poll — return immediately
