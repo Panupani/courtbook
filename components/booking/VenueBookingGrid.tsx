@@ -712,7 +712,21 @@ export default function VenueBookingGrid({
     <div className="flex flex-col gap-0">
       <div className="flex items-start justify-between mb-6 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{venue.name}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-gray-900">{venue.name}</h1>
+            <span
+              title="Live availability — updates automatically"
+              className="inline-flex items-center gap-1 text-xs text-gray-400 select-none"
+            >
+              <span className={`w-1.5 h-1.5 rounded-full inline-block transition-colors duration-300 ${
+                rtStatus === 'live'
+                  ? isRefreshing ? 'bg-green-500 animate-pulse' : 'bg-green-400'
+                  : rtStatus === 'offline' ? 'bg-red-400'
+                  : 'bg-gray-300 animate-pulse'
+              }`} />
+              {rtStatus === 'live' ? 'Live' : rtStatus === 'offline' ? 'Offline' : 'Connecting…'}
+            </span>
+          </div>
           <p className="text-gray-500 text-sm mt-1">Select a date and tap slots to add to your booking</p>
         </div>
         <button
@@ -872,28 +886,12 @@ export default function VenueBookingGrid({
             </div>
           </div>
         ) : (
-          <div className="bg-white border-t border-gray-100 px-4 py-3 flex items-center justify-between gap-4 text-xs text-gray-400 max-w-7xl mx-auto w-full">
-            <div className="flex items-center gap-3 flex-wrap">
+          <div className="bg-white border-t border-gray-100 px-4 py-3 flex items-center gap-3 flex-wrap text-xs text-gray-400 max-w-7xl mx-auto w-full">
               <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-white border border-gray-200 inline-block"/>Available</span>
               <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-orange-50 border border-orange-200 inline-block"/>Peak</span>
               <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-50 border border-amber-200 inline-block"/>Pending payment</span>
               <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-gray-50 border border-gray-100 inline-block"/>Booked</span>
               <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-green-600 inline-block"/>Selected</span>
-            </div>
-            <div className={`flex items-center gap-1.5 flex-shrink-0 transition-colors text-xs ${
-              rtStatus === 'live'
-                ? isRefreshing ? 'text-green-500' : 'text-green-400'
-                : rtStatus === 'offline' ? 'text-red-400'
-                : 'text-gray-300'
-            }`}>
-              <span className={`w-1.5 h-1.5 rounded-full inline-block ${
-                rtStatus === 'live'
-                  ? isRefreshing ? 'bg-green-500 animate-pulse' : 'bg-green-400'
-                  : rtStatus === 'offline' ? 'bg-red-400'
-                  : 'bg-gray-300 animate-pulse'
-              }`} />
-              <span>{rtStatus === 'live' ? 'Live' : rtStatus === 'offline' ? 'Offline' : 'Connecting…'}</span>
-            </div>
           </div>
         )}
       </div>
