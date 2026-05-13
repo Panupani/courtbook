@@ -137,8 +137,6 @@ export default function VenueBookingGrid({
 
   useEffect(() => {
     if (courtIds.length === 0) return
-    // Sync any stale SSR data immediately on mount
-    fetchSlotsQuiet()
     const supabase = createClient()
     const channel = supabase
       .channel('slot-updates')
@@ -157,11 +155,18 @@ export default function VenueBookingGrid({
         fetchSlotsDebounced()
       })
       .subscribe(status => {
-        if (status === 'SUBSCRIBED')    setRtStatus('live')
+        if (status === 'SUBSCRIBED') {
+          setRtStatus('live')
+          // Fetch fresh data the instant the subscription is active so we
+          // don't miss any booking changes that occurred while connecting.
+          fetchSlotsQuiet()
+        }
         if (status === 'CLOSED')        setRtStatus('offline')
         if (status === 'CHANNEL_ERROR') setRtStatus('offline')
       })
     return () => { supabase.removeChannel(channel) }
+  // fetchSlotsQuiet is stable (useCallback with stable deps) — safe to omit
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courtIds, fetchSlotsDebounced])
 
   // Polling fallback every 20 s — skipped during checkout (slot grid not visible).
