@@ -137,6 +137,8 @@ export default function VenueBookingGrid({
 
   useEffect(() => {
     if (courtIds.length === 0) return
+    // Sync any stale SSR data immediately on mount
+    fetchSlotsQuiet()
     const supabase = createClient()
     const channel = supabase
       .channel('slot-updates')
