@@ -190,6 +190,9 @@ export default function VenueBookingGrid({
   const timerUrgent  = timeLeft <= 60   // last 60 s → red
   const timerWarning = timeLeft <= 120  // last 2 min → amber
 
+  // Auto-cancel countdown: when hold expires, count 5 → 0 then go back
+  const [autoBackCountdown, setAutoBackCountdown] = useState<number | null>(null)
+
   // After booking creation: poll Gemini verification
   const [pendingIds, setPendingIds]       = useState<string[] | null>(null)
   const [pendingGroupId, setPendingGroupId] = useState<string | null>(null)
@@ -370,7 +373,7 @@ export default function VenueBookingGrid({
     }
   }
 
-  async function cancelHoldAndGoBack() {
+  const cancelHoldAndGoBack = useCallback(async () => {
     setVerifyError(null)
 
     // Stop any in-progress Gemini verification poll immediately
@@ -411,8 +414,26 @@ export default function VenueBookingGrid({
     setVerifyStatus('')
     setSlipFile(null)
     setSlipPreview(null)
+    setAutoBackCountdown(null)
     setStep('select')
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [holdIds, cart, selectedDate])
+
+  // When hold expires: start a 5-second countdown then auto-cancel
+  useEffect(() => {
+    if (!timerExpired || step !== 'checkout') return
+    setAutoBackCountdown(5)
+  }, [timerExpired, step])
+
+  useEffect(() => {
+    if (autoBackCountdown === null) return
+    if (autoBackCountdown <= 0) {
+      cancelHoldAndGoBack()
+      return
+    }
+    const t = setTimeout(() => setAutoBackCountdown(n => (n ?? 1) - 1), 1000)
+    return () => clearTimeout(t)
+  }, [autoBackCountdown, cancelHoldAndGoBack])
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -479,9 +500,9 @@ export default function VenueBookingGrid({
 
           {/* ── Countdown timer ── */}
           {timerExpired ? (
-            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-sm font-semibold px-4 py-2 rounded-xl">
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm font-semibold px-4 py-2 rounded-xl animate-pulse">
               <span className="text-base">⏱</span>
-              <span>Slot hold ended</span>
+              <span>Hold expired</span>
             </div>
           ) : (
             <div className={`flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition-colors ${
@@ -497,13 +518,22 @@ export default function VenueBookingGrid({
           )}
         </div>
 
-        {/* Expired notice — slot still held, just remind them to upload */}
+        {/* Expired notice — show countdown before auto-cancelling */}
         {timerExpired && (
-          <div className="mb-5 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
-            <p className="text-amber-800 font-semibold text-sm">⏱ Slot hold expired</p>
-            <p className="text-amber-700 text-xs mt-1">
-              Your slot reservation has ended. Upload your payment slip now — it will still be verified automatically.
+          <div className="mb-5 bg-red-50 border border-red-200 rounded-2xl px-5 py-4">
+            <p className="text-red-800 font-semibold text-sm">⏱ Slot hold expired</p>
+            <p className="text-red-700 text-xs mt-1">
+              Your slot reservation has ended. Returning to slot selection
+              {autoBackCountdown !== null && autoBackCountdown > 0
+                ? ` in ${autoBackCountdown}…`
+                : '…'}
             </p>
+            <button
+              onClick={cancelHoldAndGoBack}
+              className="mt-2 text-xs font-medium text-red-600 underline underline-offset-2"
+            >
+              Go back now
+            </button>
           </div>
         )}
 
@@ -680,9 +710,20 @@ export default function VenueBookingGrid({
   // ── SLOT SELECTION STEP ─────────────────────────────────────────────
   return (
     <div className="flex flex-col gap-0">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{venue.name}</h1>
-        <p className="text-gray-500 text-sm mt-1">Select a date and tap slots to add to your booking</p>
+      <div className="flex items-start justify-between mb-6 gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{venue.name}</h1>
+          <p className="text-gray-500 text-sm mt-1">Select a date and tap slots to add to your booking</p>
+        </div>
+        <button
+          onClick={fetchSlots}
+          disabled={isRefreshing}
+          title="Refresh slot availability"
+          className="flex-shrink-0 flex items-center gap-1.5 text-xs text-gray-500 hover:text-green-600 border border-gray-200 hover:border-green-300 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50 mt-1"
+        >
+          <span className={`text-sm ${isRefreshing ? 'animate-spin inline-block' : ''}`}>↻</span>
+          Refresh
+        </button>
       </div>
 
       {/* Date strip */}
