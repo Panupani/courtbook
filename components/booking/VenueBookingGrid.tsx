@@ -87,6 +87,7 @@ export default function VenueBookingGrid({
   // Refs so fetchSlotsQuiet can read current values without being a dep of them
   const selectedDateRef = useRef(days[0])
   const stepRef         = useRef<Step>('select')
+  const cartRef         = useRef<CartItem[]>([])
 
   // Background fetch — no spinner. Used by subscriptions and polling.
   const fetchSlotsQuiet = useCallback(async () => {
@@ -98,8 +99,17 @@ export default function VenueBookingGrid({
       const byCourtId: Record<string, SlotBooking[]> = {}
       for (const c of courts) byCourtId[c.id] = fresh.filter(b => b.court_id === c.id)
       setLiveBookings(byCourtId)
-      // Drop cart items whose slots are now taken — same behaviour as WalkInForm
       if (stepRef.current !== 'checkout') {
+        const taken = cartRef.current.filter(item =>
+          (byCourtId[item.courtId] ?? []).some(
+            b => b.booking_date === selectedDateRef.current &&
+                 b.start_time.slice(0, 5) === item.slot.start
+          )
+        )
+        if (taken.length > 0) {
+          const names = taken.map(i => `${i.courtName} ${i.slot.start}`).join(', ')
+          setTakenSlotsMsg(`${names} ${taken.length === 1 ? 'was' : 'were'} just booked by someone else and removed from your cart.`)
+        }
         setCart(prev => prev.filter(item =>
           !(byCourtId[item.courtId] ?? []).some(
             b => b.booking_date === selectedDateRef.current &&
@@ -165,6 +175,8 @@ export default function VenueBookingGrid({
   const [selectedDate, setSelectedDate] = useState(days[0])
   useEffect(() => { selectedDateRef.current = selectedDate }, [selectedDate])
   const [cart, setCart] = useState<CartItem[]>([])
+  useEffect(() => { cartRef.current = cart }, [cart])
+  const [takenSlotsMsg, setTakenSlotsMsg] = useState<string | null>(null)
   const [notes, setNotes] = useState('')
 
   // Checkout / payment
@@ -755,6 +767,14 @@ export default function VenueBookingGrid({
         </button>
       </div>
 
+      {/* Taken-slot warning */}
+      {takenSlotsMsg && (
+        <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 rounded-xl flex items-start justify-between gap-3">
+          <span>⚠️ <strong>{takenSlotsMsg}</strong></span>
+          <button onClick={() => setTakenSlotsMsg(null)} className="flex-shrink-0 text-amber-500 hover:text-amber-700 mt-0.5">✕</button>
+        </div>
+      )}
+
       {/* Date strip */}
       <div className="flex gap-2 overflow-x-auto pb-3 mb-6 scrollbar-hide">
         {days.map(d => {
@@ -763,7 +783,7 @@ export default function VenueBookingGrid({
           return (
             <button
               key={d}
-              onClick={() => { setSelectedDate(d); setCart([]) }}
+              onClick={() => { setSelectedDate(d); setCart([]); setTakenSlotsMsg(null) }}
               className={`flex-shrink-0 flex flex-col items-center px-4 py-2.5 rounded-xl text-sm font-medium transition-all border ${
                 active
                   ? 'bg-green-600 text-white border-green-600 shadow-sm'
