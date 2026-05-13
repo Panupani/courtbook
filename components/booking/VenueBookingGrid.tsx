@@ -84,6 +84,10 @@ export default function VenueBookingGrid({
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [rtStatus, setRtStatus]         = useState<'connecting' | 'live' | 'offline'>('connecting')
 
+  // Refs so fetchSlotsQuiet can read current values without being a dep of them
+  const selectedDateRef = useRef(days[0])
+  const stepRef         = useRef<Step>('select')
+
   // Background fetch — no spinner. Used by subscriptions and polling.
   const fetchSlotsQuiet = useCallback(async () => {
     if (courtIds.length === 0) return
@@ -94,6 +98,15 @@ export default function VenueBookingGrid({
       const byCourtId: Record<string, SlotBooking[]> = {}
       for (const c of courts) byCourtId[c.id] = fresh.filter(b => b.court_id === c.id)
       setLiveBookings(byCourtId)
+      // Drop cart items whose slots are now taken — same behaviour as WalkInForm
+      if (stepRef.current !== 'checkout') {
+        setCart(prev => prev.filter(item =>
+          !(byCourtId[item.courtId] ?? []).some(
+            b => b.booking_date === selectedDateRef.current &&
+                 b.start_time.slice(0, 5) === item.slot.start
+          )
+        ))
+      }
     } catch {}
   }, [courtIds, courts])
 
@@ -111,10 +124,6 @@ export default function VenueBookingGrid({
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(fetchSlotsQuiet, 300)
   }, [fetchSlotsQuiet])
-
-  // stepRef lets polling read the current step without being a dependency
-  // (adding step would restart the interval on every checkout transition).
-  const stepRef = useRef<Step>('select')
 
   useEffect(() => {
     if (courtIds.length === 0) return
@@ -154,6 +163,7 @@ export default function VenueBookingGrid({
 
   // Slot selection
   const [selectedDate, setSelectedDate] = useState(days[0])
+  useEffect(() => { selectedDateRef.current = selectedDate }, [selectedDate])
   const [cart, setCart] = useState<CartItem[]>([])
   const [notes, setNotes] = useState('')
 
