@@ -90,13 +90,16 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'ids required' }, { status: 400 })
   }
 
-  // Fetch before cancelling so we can broadcast the freed slots
+  // Fetch before cancelling so we can broadcast the freed slots.
+  // Cancel both 'unpaid' holds AND slip-uploaded 'pending' holds —
+  // as long as the booking hasn't already been confirmed (status !== 'confirmed').
   const { data: held } = await supabase
     .from('bookings')
     .select('id, court_id, booking_date, start_time')
     .in('id', ids)
     .eq('user_id', user.id)
-    .eq('payment_status', 'unpaid')  // only cancel unpaid holds
+    .in('payment_status', ['unpaid', 'pending'])
+    .neq('status', 'confirmed')   // never clobber a confirmed booking
 
   if (held && held.length > 0) {
     await supabase

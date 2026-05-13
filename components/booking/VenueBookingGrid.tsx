@@ -356,16 +356,45 @@ export default function VenueBookingGrid({
 
   async function cancelHoldAndGoBack() {
     setVerifyError(null)
+
+    // Stop any in-progress Gemini verification poll immediately
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = null
+    }
+    setPendingIds(null)
+    setPendingGroupId(null)
+
+    // Optimistically remove the held slots from liveBookings right now
+    // so the customer's own view shows them as available instantly (no
+    // waiting for the broadcast round-trip).
     if (holdIds && holdIds.length > 0) {
-      // Fire-and-forget cancel — don't block UI
+      setLiveBookings(prev => {
+        const updated = { ...prev }
+        for (const item of cart) {
+          const courtSlots = updated[item.courtId] ?? []
+          updated[item.courtId] = courtSlots.filter(b =>
+            !(b.booking_date === selectedDate &&
+              b.start_time.slice(0, 5) === item.slot.start)
+          )
+        }
+        return updated
+      })
+
+      // Fire-and-forget server cancel + broadcast (frees slot for everyone else)
       fetch('/api/bookings/hold', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: holdIds }),
       }).catch(() => {})
     }
+
     setHoldIds(null)
     setHoldGroupId(null)
+    setVerifying(false)
+    setVerifyStatus('')
+    setSlipFile(null)
+    setSlipPreview(null)
     setStep('select')
   }
 
