@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { formatPrice } from '@/lib/utils'
 
 interface BookingRow {
@@ -55,9 +56,35 @@ const STATUS_LABEL: Record<string, string> = {
 export default function CheckInBoard({ bookings: initial, date }: Props) {
   const router = useRouter()
   const [bookings, setBookings] = useState(initial)
-  const [pending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'checked-in'>('all')
+
+  // Sync server-delivered props into local state so router.refresh() updates land here
+  useEffect(() => {
+    setBookings(initial)
+  }, [initial])
+
+  // Clock ticker — re-renders every 60 s so time-based statuses (upcoming → no-show) stay current
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 60_000)
+    return () => clearInterval(id)
+  }, [])
+
+  // Realtime: postgres_changes for the selected date — router.refresh() on any booking change
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`checkin-${date}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bookings', filter: `booking_date=eq.${date}` },
+        () => { startTransition(() => router.refresh()) }
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [date, router])
 
   // Summary counts
   const total      = bookings.filter(b => b.status !== 'cancelled').length
