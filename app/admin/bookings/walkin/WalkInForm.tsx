@@ -96,7 +96,7 @@ export default function WalkInForm({ venues, courts }: Props) {
     if (!courtId || !date) return
     const supabase = createClient()
     const channel = supabase
-      .channel('walkin-slot-realtime')
+      .channel('slot-updates')
       // Native DB changes — most reliable
       .on(
         'postgres_changes',

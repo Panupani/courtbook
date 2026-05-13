@@ -114,7 +114,7 @@ export default function VenueBookingGrid({
     const supabase = createClient()
 
     const channel = supabase
-      .channel('slot-realtime')
+      .channel('slot-updates')
       // Native DB changes — triggers on INSERT (new hold), UPDATE (confirm/cancel), DELETE
       .on(
         'postgres_changes',
