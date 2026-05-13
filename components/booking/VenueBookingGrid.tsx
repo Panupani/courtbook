@@ -105,20 +105,36 @@ export default function VenueBookingGrid({
     }
   }, [courtIds, courts])
 
-  // Realtime broadcast subscription — instant updates
+  // Realtime: postgres_changes on bookings table — fires the instant the DB row changes.
+  // This is more reliable than HTTP broadcast because it's driven by the DB write itself.
+  // We also keep the HTTP broadcast as a secondary channel (received via AutoRefresh on
+  // admin pages) so admins see updates too.
   useEffect(() => {
     if (courtIds.length === 0) return
     const supabase = createClient()
+
     const channel = supabase
-      .channel('slot-updates')
+      .channel('slot-realtime')
+      // Native DB changes — triggers on INSERT (new hold), UPDATE (confirm/cancel), DELETE
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bookings' },
+        (payload) => {
+          // Filter to courts on this venue only
+          const record = (payload.new ?? payload.old) as any
+          if (!record?.court_id || !courtIds.includes(record.court_id)) return
+          fetchSlots()
+        }
+      )
+      // Also listen to HTTP broadcasts (e.g. from admin actions)
       .on('broadcast', { event: 'slot-changed' }, ({ payload }) => {
         const { courtId } = payload as SlotUpdate
-        if (!courtIds.includes(courtId)) return   // different venue — ignore
-        fetchSlots()                               // re-fetch full slot state for accuracy
+        if (!courtIds.includes(courtId)) return
+        fetchSlots()
       })
       .subscribe(status => {
-        if (status === 'SUBSCRIBED')   setRtStatus('live')
-        if (status === 'CLOSED')       setRtStatus('offline')
+        if (status === 'SUBSCRIBED')    setRtStatus('live')
+        if (status === 'CLOSED')        setRtStatus('offline')
         if (status === 'CHANNEL_ERROR') setRtStatus('offline')
       })
 

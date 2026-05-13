@@ -91,12 +91,23 @@ export default function WalkInForm({ venues, courts }: Props) {
     }
   }, [courtId, date])
 
-  // Real-time: subscribe to slot-updates broadcast — instant updates
+  // Real-time: postgres_changes on bookings — instant updates whenever the DB changes
   useEffect(() => {
     if (!courtId || !date) return
     const supabase = createClient()
     const channel = supabase
-      .channel('slot-updates')
+      .channel('walkin-slot-realtime')
+      // Native DB changes — most reliable
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bookings', filter: `court_id=eq.${courtId}` },
+        (payload) => {
+          const record = (payload.new ?? payload.old) as any
+          if (record?.booking_date !== date) return   // different date — ignore
+          silentRefresh()
+        }
+      )
+      // HTTP broadcast fallback (e.g. from customer-side actions)
       .on('broadcast', { event: 'slot-changed' }, ({ payload }) => {
         const { courtId: changedCourt, bookingDate } = payload as SlotUpdate
         if (changedCourt !== courtId || bookingDate !== date) return
