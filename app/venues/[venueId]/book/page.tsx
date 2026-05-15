@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import type { Court, OperatingHours, Booking, Venue } from '@/lib/types'
 import VenueBookingGrid from '@/components/booking/VenueBookingGrid'
 
@@ -42,9 +43,16 @@ export default async function VenueBookPage({
 
   const courtIds = courts.map(c => c.id)
 
+  // Use service role for bookings so RLS doesn't hide other users' bookings —
+  // must match what /api/bookings/slots returns, or SSR and live data diverge.
+  const adminSupabase = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+
   const [hoursRes, bookingsRes] = await Promise.all([
     supabase.from('operating_hours').select('*').in('court_id', courtIds),
-    supabase.from('bookings').select('*').in('court_id', courtIds).neq('status', 'cancelled'),
+    adminSupabase.from('bookings').select('court_id, booking_date, start_time, status').in('court_id', courtIds).neq('status', 'cancelled'),
   ])
 
   const allHours = (hoursRes.data ?? []) as OperatingHours[]
