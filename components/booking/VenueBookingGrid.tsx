@@ -156,10 +156,9 @@ export default function VenueBookingGrid({
       })
       .subscribe(status => {
         if (status === 'SUBSCRIBED') {
-          setRtStatus('live')
-          // Fetch fresh data the instant the subscription is active so we
-          // don't miss any booking changes that occurred while connecting.
-          fetchSlotsQuiet()
+          // Fetch fresh data first, then mark as live — so the dot only turns
+          // green once the slot grid is actually up-to-date.
+          fetchSlotsQuiet().then(() => setRtStatus('live')).catch(() => setRtStatus('live'))
         }
         if (status === 'CLOSED')        setRtStatus('offline')
         if (status === 'CHANNEL_ERROR') setRtStatus('offline')
