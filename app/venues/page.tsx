@@ -1,9 +1,13 @@
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/server'
 import type { Venue, Zone } from '@/lib/types'
 import ZoneFilter from './ZoneFilter'
+
+// Leaflet must not run on the server — lazy-load the map
+const VenueMap = dynamic(() => import('@/components/VenueMap'), { ssr: false })
 
 export default async function VenuesPage({
   searchParams,
@@ -43,6 +47,9 @@ export default async function VenuesPage({
       {zones && zones.length > 0 && (
         <ZoneFilter zones={zones as Zone[]} activeZoneId={zoneId} />
       )}
+
+      {/* Map */}
+      <VenueMap venues={(venues ?? []) as (Venue & { zone?: Zone })[]} activeZoneId={zoneId} />
 
       {/* Results header */}
       {activeZone && (

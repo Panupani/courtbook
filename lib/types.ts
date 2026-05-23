@@ -25,6 +25,8 @@ export interface Venue {
   is_active: boolean
   zone_id: string | null
   zone?: Zone
+  lat: number | null
+  lng: number | null
   created_at: string
 }
 

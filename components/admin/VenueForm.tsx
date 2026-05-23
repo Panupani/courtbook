@@ -22,9 +22,31 @@ export default function VenueForm({ venue, zones = [] }: Props) {
   const [promptpayId, setPromptpayId] = useState(venue?.promptpay_id ?? '')
   const [feeRate, setFeeRate] = useState<number>((venue?.platform_fee_rate ?? 0.05) * 100)
   const [zoneId, setZoneId]   = useState(venue?.zone_id ?? '')
+  const [lat, setLat]         = useState(venue?.lat?.toString() ?? '')
+  const [lng, setLng]         = useState(venue?.lng?.toString() ?? '')
+  const [locating, setLocating] = useState(false)
   const [isActive, setIsActive] = useState(venue?.is_active ?? true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  async function autoLocate() {
+    if (!address.trim()) { setError('Enter an address first'); return }
+    setLocating(true); setError('')
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`,
+        { headers: { 'Accept-Language': 'en' } }
+      )
+      const results = await res.json()
+      if (!results.length) { setError('Address not found — enter coordinates manually'); return }
+      setLat(parseFloat(results[0].lat).toFixed(7))
+      setLng(parseFloat(results[0].lon).toFixed(7))
+    } catch {
+      setError('Geocoding failed — enter coordinates manually')
+    } finally {
+      setLocating(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,6 +61,8 @@ export default function VenueForm({ venue, zones = [] }: Props) {
       promptpay_id: promptpayId || null,
       platform_fee_rate: Math.round(feeRate) / 100,
       zone_id: zoneId || null,
+      lat: lat ? parseFloat(lat) : null,
+      lng: lng ? parseFloat(lng) : null,
       is_active: isActive,
     }
 
@@ -72,6 +96,37 @@ export default function VenueForm({ venue, zones = [] }: Props) {
         <input required value={address} onChange={e => setAddress(e.target.value)}
           className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
           placeholder="123 Sport Ave, Bangkok" />
+      </div>
+
+      {/* Coordinates */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-sm font-medium text-gray-700">Map Location</label>
+          <button
+            type="button"
+            onClick={autoLocate}
+            disabled={locating}
+            className="text-xs text-green-600 hover:text-green-700 font-medium disabled:opacity-50 flex items-center gap-1"
+          >
+            {locating
+              ? <><span className="inline-block w-3 h-3 border-2 border-green-600/30 border-t-green-600 rounded-full animate-spin"/>Locating…</>
+              : <>📍 Auto-locate from address</>
+            }
+          </button>
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="number" step="any" placeholder="Latitude (e.g. 13.7563)"
+            value={lat} onChange={e => setLat(e.target.value)}
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+          <input
+            type="number" step="any" placeholder="Longitude (e.g. 100.5018)"
+            value={lng} onChange={e => setLng(e.target.value)}
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+        </div>
+        <p className="text-[10px] text-gray-400 mt-1">Used to pin this venue on the map. Click "Auto-locate" to fill from the address above.</p>
       </div>
 
       {zones.length > 0 && (
