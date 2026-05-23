@@ -6,11 +6,12 @@ import type { Venue } from '@/lib/types'
 import {
   Search, CalendarCheck, CheckCircle2,
   QrCode, Zap, Building2, Sparkles,
-  MapPin, ArrowRight, Star, ShieldCheck, Clock,
+  MapPin, ArrowRight, ShieldCheck, Clock,
 } from '@/components/icons'
 import Reveal from '@/components/landing/Reveal'
 import StatsCounter from '@/components/landing/StatsCounter'
 import CourtGraphic from '@/components/landing/CourtGraphic'
+import FeaturePresentation from '@/components/landing/FeaturePresentation'
 
 const STATS = [
   { value: 100, suffix: '%', label: 'Online booking' },
@@ -62,14 +63,6 @@ const FEATURES = [
   },
 ]
 
-const TESTIMONIALS = [
-  { name: 'Krit S.',    role: 'Venue Owner',    text: 'Bookings doubled after switching to Badminto. The walk-in feature saves us 30 min a day.' },
-  { name: 'Nong P.',   role: 'Regular Player',  text: 'Super easy to use. I book my court in under a minute every week.' },
-  { name: 'Aom T.',    role: 'Club Manager',    text: 'The AI payment verification is a game changer. No more checking slips manually.' },
-  { name: 'James L.',  role: 'Sports Complex',  text: 'Revenue tracking and the platform fee system are exactly what we needed.' },
-  { name: 'Fern W.',   role: 'Venue Admin',     text: 'The check-in board makes managing walk-ins so smooth during peak hours.' },
-  { name: 'Tan K.',    role: 'Regular Player',  text: 'Finally a booking system that actually works on mobile. Love it.' },
-]
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -338,41 +331,8 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* ── Testimonials marquee ──────────────────────────────────────── */}
-      <section className="section-sm bg-white overflow-hidden">
-        <div className="container mb-10">
-          <Reveal>
-            <div className="text-center">
-              <p className="text-xs font-bold text-green-600 uppercase tracking-[.2em] mb-2">Testimonials</p>
-              <h2 className="text-3xl md:text-4xl font-extrabold text-zinc-900 tracking-tight">
-                Loved by venues & players
-              </h2>
-            </div>
-          </Reveal>
-        </div>
-
-        {/* Scrolling marquee */}
-        <div className="relative flex gap-5 overflow-hidden">
-          {/* Fade edges */}
-          <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
-
-          <div className="anim-marquee flex gap-5 flex-nowrap">
-            {[...TESTIMONIALS, ...TESTIMONIALS].map((t, i) => (
-              <div key={i} className="flex-shrink-0 w-72 bg-zinc-50 border border-zinc-200 rounded-2xl p-5">
-                <div className="flex items-center gap-0.5 mb-3">
-                  {[1,2,3,4,5].map(s => <Star key={s} className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />)}
-                </div>
-                <p className="text-zinc-600 text-sm leading-relaxed mb-4">"{t.text}"</p>
-                <div>
-                  <p className="text-sm font-semibold text-zinc-900">{t.name}</p>
-                  <p className="text-xs text-zinc-400">{t.role}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* ── Feature Presentation ──────────────────────────────────────── */}
+      <FeaturePresentation />
 
       {/* ── Why choose us strip ───────────────────────────────────────── */}
       <section className="section-sm bg-zinc-50 border-y border-zinc-200">
