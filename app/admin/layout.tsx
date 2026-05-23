@@ -5,7 +5,7 @@ import { getAdminContext } from '@/lib/admin'
 import { createClient } from '@/lib/supabase/server'
 import {
   LayoutDashboard, Building2, Grid3X3, CalendarDays,
-  UserCheck, BookOpen, CreditCard, TrendingUp, Users,
+  UserCheck, BookOpen, CreditCard, TrendingUp, Users, MapPin,
 } from '@/components/icons'
 import SidebarNav, { type NavLink } from '@/components/admin/SidebarNav'
 
@@ -37,6 +37,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const sysAdminLinks: NavLink[] = [
     { href: '/admin',          label: 'Dashboard', icon: <LayoutDashboard className={iconCls} /> },
     { href: '/admin/venues',   label: 'Venues',    icon: <Building2       className={iconCls} /> },
+    { href: '/admin/zones',    label: 'Zones',     icon: <MapPin          className={iconCls} /> },
     { href: '/admin/courts',   label: 'Courts',    icon: <Grid3X3         className={iconCls} /> },
     { href: '/admin/schedule', label: 'Schedule',  icon: <CalendarDays    className={iconCls} /> },
     { href: '/admin/checkin',  label: 'Check-in',  icon: <UserCheck       className={iconCls} /> },

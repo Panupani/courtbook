@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<!-- saved from url=(0046)file:///D:/Apps/BadmintoV3/scripts/manual.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CourtBook – User Manual</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  :root {
+    --green: #16a34a;
+    --green-light: #dcfce7;
+    --green-mid: #4ade80;
+    --amber: #f59e0b;
+    --amber-light: #fef3c7;
+    --blue: #2563eb;
+    --blue-light: #dbeafe;
+    --red: #dc2626;
+    --red-light: #fee2e2;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-400: #9ca3af;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.65;
+    color: var(--gray-800);
+    background: white;
+  }
+
+  /* ── COVER PAGE ── */
+  .cover {
+    page-break-after: always;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #14532d 0%, #16a34a 50%, #4ade80 100%);
+    color: white;
+    padding: 60px;
+    text-align: center;
+  }
+  .cover-icon { font-size: 80pt; margin-bottom: 24px; }
+  .cover h1 { font-size: 36pt; font-weight: 800; letter-spacing: -1px; }
+  .cover .subtitle { font-size: 14pt; font-weight: 400; opacity: 0.85; margin-top: 12px; }
+  .cover .version { font-size: 9pt; opacity: 0.6; margin-top: 8px; }
+  .cover .divider {
+    width: 60px; height: 3px;
+    background: rgba(255,255,255,0.4);
+    margin: 32px auto;
+    border-radius: 2px;
+  }
+  .cover .tagline {
+    font-size: 12pt;
+    font-weight: 500;
+    opacity: 0.9;
+    max-width: 420px;
+    line-height: 1.5;
+  }
+  .cover .meta {
+    position: absolute;
+    bottom: 40px;
+    font-size: 9pt;
+    opacity: 0.5;
+  }
+
+  /* ── TOC ── */
+  .toc-page {
+    page-break-after: always;
+    padding: 56px 64px;
+  }
+  .toc-title {
+    font-size: 22pt;
+    font-weight: 800;
+    color: var(--green);
+    margin-bottom: 32px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--green-light);
+  }
+  .toc-section { margin-bottom: 6px; }
+  .toc-h1 {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 10.5pt;
+    font-weight: 600;
+    color: var(--gray-800);
+    padding: 5px 0;
+    border-bottom: 1px dotted var(--gray-200);
+  }
+  .toc-h2 {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 9.5pt;
+    color: var(--gray-600);
+    padding: 3px 0 3px 20px;
+  }
+  .toc-page-num { font-variant-numeric: tabular-nums; color: var(--green); font-weight: 600; }
+
+  /* ── GENERAL LAYOUT ── */
+  .page { padding: 52px 64px; page-break-after: always; }
+  .page:last-child { page-break-after: avoid; }
+
+  /* ── SECTION HEADER ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 28px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid var(--green-light);
+  }
+  .section-icon {
+    width: 48px; height: 48px;
+    background: var(--green-light);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .section-header h2 {
+    font-size: 18pt;
+    font-weight: 800;
+    color: var(--green);
+    line-height: 1.2;
+  }
+  .section-header .section-desc {
+    font-size: 9.5pt;
+    color: var(--gray-400);
+    margin-top: 2px;
+  }
+
+  h3 {
+    font-size: 12pt;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin: 24px 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  h3::before {
+    content: '';
+    display: inline-block;
+    width: 4px; height: 16px;
+    background: var(--green);
+    border-radius: 2px;
+  }
+
+  h4 {
+    font-size: 10pt;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin: 16px 0 6px;
+  }
+
+  p { margin-bottom: 10px; color: var(--gray-700); }
+
+  /* ── STEPS ── */
+  .steps { counter-reset: step; margin: 16px 0; }
+  .step {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 14px;
+    align-items: flex-start;
+  }
+  .step-num {
+    counter-increment: step;
+    width: 28px; height: 28px;
+    background: var(--green);
+    color: white;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9pt;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step-num::before { content: counter(step); }
+  .step-body { flex: 1; }
+  .step-body strong { color: var(--gray-900); }
+
+  /* ── CALLOUT BOXES ── */
+  .callout {
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin: 14px 0;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 9.5pt;
+  }
+  .callout-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .callout-body { flex: 1; }
+  .callout-body strong { display: block; margin-bottom: 2px; }
+  .callout.tip    { background: var(--green-light); border-left: 3px solid var(--green); color: #14532d; }
+  .callout.warn   { background: var(--amber-light); border-left: 3px solid var(--amber); color: #78350f; }
+  .callout.info   { background: var(--blue-light);  border-left: 3px solid var(--blue);  color: #1e3a8a; }
+  .callout.danger { background: var(--red-light);   border-left: 3px solid var(--red);   color: #7f1d1d; }
+
+  /* ── TABLE ── */
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 9.5pt; }
+  thead { background: var(--green); color: white; }
+  thead th { padding: 8px 12px; text-align: left; font-weight: 600; }
+  tbody tr:nth-child(even) { background: var(--gray-50); }
+  tbody td { padding: 8px 12px; border-bottom: 1px solid var(--gray-100); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* ── STATUS BADGE ── */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  .badge-green  { background: var(--green-light); color: #14532d; }
+  .badge-amber  { background: var(--amber-light); color: #78350f; }
+  .badge-gray   { background: var(--gray-100);    color: var(--gray-700); }
+  .badge-red    { background: var(--red-light);   color: #7f1d1d; }
+  .badge-blue   { background: var(--blue-light);  color: #1e3a8a; }
+
+  /* ── FLOW DIAGRAM ── */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin: 18px 0;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .flow-box {
+    background: var(--green-light);
+    border: 1.5px solid #86efac;
+    border-radius: 8px;
+    padding: 7px 13px;
+    font-size: 9pt;
+    font-weight: 600;
+    color: #14532d;
+    white-space: nowrap;
+  }
+  .flow-arrow {
+    color: var(--gray-400);
+    font-size: 14px;
+    padding: 0 6px;
+  }
+
+  /* ── SCREEN MOCKUP ── */
+  .mockup {
+    background: var(--gray-50);
+    border: 1.5px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 14px 0;
+    font-size: 9pt;
+  }
+  .mockup-bar {
+    display: flex; align-items: center; gap: 6px;
+    margin-bottom: 12px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--gray-200);
+  }
+  .mockup-dot { width: 9px; height: 9px; border-radius: 50%; }
+  .mockup-title { font-size: 9pt; color: var(--gray-600); font-weight: 500; flex: 1; text-align: center; }
+
+  /* ── GRID CARDS ── */
+  .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
+  .card {
+    background: var(--gray-50);
+    border: 1.5px solid var(--gray-200);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .card-icon { font-size: 20px; margin-bottom: 8px; }
+  .card h4 { margin: 0 0 4px; color: var(--gray-900); font-size: 10pt; }
+  .card p { margin: 0; font-size: 9pt; color: var(--gray-600); }
+
+  /* ── FOOTER ── */
+  @page {
+    margin: 0;
+    @bottom-center {
+      content: counter(page);
+    }
+  }
+
+  .page-footer {
+    position: fixed;
+    bottom: 20px;
+    left: 64px;
+    right: 64px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 8pt;
+    color: var(--gray-400);
+    border-top: 1px solid var(--gray-100);
+    padding-top: 8px;
+  }
+
+  ul { padding-left: 20px; margin: 8px 0 12px; }
+  ul li { margin-bottom: 5px; color: var(--gray-700); }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .highlight { background: #fefce8; border-left: 3px solid #eab308; padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 10px 0; }
+
+  hr { border: none; border-top: 1px solid var(--gray-100); margin: 20px 0; }
+
+  code {
+    background: var(--gray-100);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 9pt;
+    color: var(--red);
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════ COVER -->
+<div class="cover">
+  <div class="cover-icon">🏸</div>
+  <h1>CourtBook</h1>
+  <div class="subtitle">Badminton Court Booking System</div>
+  <div class="version">User Manual · Version 1.0</div>
+  <div class="divider"></div>
+  <div class="tagline">Complete guide for customers and administrators — booking courts, managing payments, and running your venue.</div>
+  <div class="meta">© 2025 CourtBook · Confidential</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ TOC -->
+<div class="toc-page">
+  <div class="toc-title">Table of Contents</div>
+
+  <div class="toc-section">
+    <div class="toc-h1"><span>1. Getting Started</span><span class="toc-page-num">3</span></div>
+    <div class="toc-h2"><span>1.1 Creating an Account</span><span class="toc-page-num">3</span></div>
+    <div class="toc-h2"><span>1.2 Logging In</span><span class="toc-page-num">3</span></div>
+    <div class="toc-h2"><span>1.3 Navigating the App</span><span class="toc-page-num">3</span></div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-h1"><span>2. Booking a Court (Customer Guide)</span><span class="toc-page-num">4</span></div>
+    <div class="toc-h2"><span>2.1 Browsing Venues &amp; Courts</span><span class="toc-page-num">4</span></div>
+    <div class="toc-h2"><span>2.2 Selecting Date &amp; Time Slots</span><span class="toc-page-num">4</span></div>
+    <div class="toc-h2"><span>2.3 Checkout &amp; Payment (PromptPay)</span><span class="toc-page-num">5</span></div>
+    <div class="toc-h2"><span>2.4 Uploading Your Payment Slip</span><span class="toc-page-num">5</span></div>
+    <div class="toc-h2"><span>2.5 Booking Confirmation</span><span class="toc-page-num">5</span></div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-h1"><span>3. My Bookings Dashboard</span><span class="toc-page-num">6</span></div>
+    <div class="toc-h2"><span>3.1 Viewing Upcoming Bookings</span><span class="toc-page-num">6</span></div>
+    <div class="toc-h2"><span>3.2 Booking Status Guide</span><span class="toc-page-num">6</span></div>
+    <div class="toc-h2"><span>3.3 Group Bookings</span><span class="toc-page-num">6</span></div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-h1"><span>4. Admin Panel — Overview</span><span class="toc-page-num">7</span></div>
+    <div class="toc-h2"><span>4.1 Accessing the Admin Panel</span><span class="toc-page-num">7</span></div>
+    <div class="toc-h2"><span>4.2 Admin Roles</span><span class="toc-page-num">7</span></div>
+    <div class="toc-h2"><span>4.3 Dashboard Overview</span><span class="toc-page-num">7</span></div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-h1"><span>5. Managing Venues &amp; Courts</span><span class="toc-page-num">8</span></div>
+    <div class="toc-h2"><span>5.1 Adding a Venue</span><span class="toc-page-num">8</span></div>
+    <div class="toc-h2"><span>5.2 Adding Courts</span><span class="toc-page-num">8</span></div>
+    <div class="toc-h2"><span>5.3 Setting Operating Hours</span><span class="toc-page-num">8</span></div>
+    <div class="toc-h2"><span>5.4 Peak Pricing</span><span class="toc-page-num">9</span></div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-h1"><span>6. Managing Bookings</span><span class="toc-page-num">9</span></div>
+    <div class="toc-h2"><span>6.1 Viewing All Bookings</span><span class="toc-page-num">9</span></div>
+    <div class="toc-h2"><span>6.2 Filtering &amp; Searching</span><span class="toc-page-num">9</span></div>
+    <div class="toc-h2"><span>6.3 Walk-in Bookings</span><span class="toc-page-num">10</span></div>
+    <div class="toc-h2"><span>6.4 Cancelling a Booking</span><span class="toc-page-num">10</span></div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-h1"><span>7. Payment Management</span><span class="toc-page-num">10</span></div>
+    <div class="toc-h2"><span>7.1 Pending Payments Queue</span><span class="toc-page-num">10</span></div>
+    <div class="toc-h2"><span>7.2 Approving a Slip Manually</span><span class="toc-page-num">11</span></div>
+    <div class="toc-h2"><span>7.3 AI Re-verification</span><span class="toc-page-num">11</span></div>
+    <div class="toc-h2"><span>7.4 Viewing Slips in Bookings Table</span><span class="toc-page-num">11</span></div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-h1"><span>8. Troubleshooting</span><span class="toc-page-num">12</span></div>
+    <div class="toc-h2"><span>8.1 Customer Issues</span><span class="toc-page-num">12</span></div>
+    <div class="toc-h2"><span>8.2 Admin Issues</span><span class="toc-page-num">12</span></div>
+    <div class="toc-h2"><span>8.3 Payment Verification Issues</span><span class="toc-page-num">13</span></div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-h1"><span>9. Reference — Status Codes &amp; Roles</span><span class="toc-page-num">13</span></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 1: GETTING STARTED -->
+<div class="page">
+  <div class="section-header">
+    <div class="section-icon">🚀</div>
+    <div>
+      <h2>1. Getting Started</h2>
+      <div class="section-desc">Create an account, log in, and learn your way around the app</div>
+    </div>
+  </div>
+
+  <h3>1.1 Creating an Account</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-body">Open your browser and navigate to the CourtBook website.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Click <strong>Sign Up</strong> in the top navigation bar.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Enter your <strong>full name</strong>, <strong>email address</strong>, and a <strong>password</strong> (minimum 8 characters).</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Optionally add your <strong>phone number</strong> — this helps staff contact you if needed.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Click <strong>Create Account</strong>. You will be logged in automatically.</div></div>
+  </div>
+
+  <div class="callout tip">
+    <div class="callout-icon">💡</div>
+    <div class="callout-body"><strong>Tip</strong> Your email address is used to log in and receive booking notifications. Make sure it is correct.</div>
+  </div>
+
+  <h3>1.2 Logging In</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-body">Click <strong>Log In</strong> in the navigation bar.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Enter your <strong>email</strong> and <strong>password</strong>.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Click <strong>Sign In</strong>. You will be redirected to your dashboard.</div></div>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-icon">⚠️</div>
+    <div class="callout-body"><strong>Forgot your password?</strong> Click "Forgot password?" on the login page and follow the email link to reset it.</div>
+  </div>
+
+  <h3>1.3 Navigating the App</h3>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">🏠</div>
+      <h4>Home / Venues</h4>
+      <p>Browse all available venues and their courts from the main page.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">📅</div>
+      <h4>My Bookings</h4>
+      <p>View your upcoming and past bookings from the <strong>Dashboard</strong>.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">👤</div>
+      <h4>Profile</h4>
+      <p>Update your name and phone number from your account menu.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔓</div>
+      <h4>Log Out</h4>
+      <p>Click your avatar in the top-right corner and select <strong>Sign Out</strong>.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 2: BOOKING -->
+<div class="page">
+  <div class="section-header">
+    <div class="section-icon">📋</div>
+    <div>
+      <h2>2. Booking a Court</h2>
+      <div class="section-desc">Customer guide — from browsing to confirmed booking</div>
+    </div>
+  </div>
+
+  <h3>2.1 Browsing Venues &amp; Courts</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-body">From the home page, click <strong>Browse Venues</strong> or select a featured venue card.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Click on a venue to view its courts, address, and facilities.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Click <strong>Book Now</strong> next to the court you want.</div></div>
+  </div>
+
+  <h3>2.2 Selecting Date &amp; Time Slots</h3>
+  <p>The booking grid shows all courts at a venue for a chosen date. You can select multiple slots and even book multiple courts in one transaction.</p>
+
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-body">Use the <strong>date strip</strong> at the top to scroll through the next 14 days and tap the date you want.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Each court shows its available time slots. Tap a slot to <strong>add it to your cart</strong>. Tap again to remove it.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">You can select slots from <strong>multiple courts</strong> on the same date — they will be grouped into one booking.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">When ready, tap <strong>Proceed to Payment</strong> in the sticky bar at the bottom.</div></div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-bar">
+      <div class="mockup-dot" style="background:#ff5f56"></div>
+      <div class="mockup-dot" style="background:#febc2e"></div>
+      <div class="mockup-dot" style="background:#27c93f"></div>
+      <div class="mockup-title">Slot Legend</div>
+    </div>
+    <table>
+      <thead><tr><th>Slot Colour</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td>⬜ White border</td><td>Available — tap to select</td></tr>
+        <tr><td>🟢 Green filled</td><td>Selected by you — in your cart</td></tr>
+        <tr><td>🟠 Orange border</td><td>Available but <strong>peak pricing</strong> applies</td></tr>
+        <tr><td>⬛ Grey / strikethrough</td><td>Already booked by someone else — unavailable</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout info">
+    <div class="callout-icon">ℹ️</div>
+    <div class="callout-body"><strong>Peak pricing</strong> — Some courts charge a higher rate during peak hours (e.g. evenings and weekends). The price is displayed on every slot tile so you always know the cost before confirming.</div>
+  </div>
+
+  <h3>2.3 Checkout &amp; Payment (PromptPay)</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-body">Review the <strong>Order Summary</strong> showing each slot and the total amount due.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">A <strong>PromptPay QR code</strong> is displayed. Open your banking app and scan it, or enter the PromptPay number manually.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Transfer <strong>exactly the amount shown</strong> (tolerance ±฿2). Do not round up or down.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Take a <strong>screenshot</strong> of the transfer success screen inside your banking app.</div></div>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-icon">⏱️</div>
+    <div class="callout-body"><strong>5-Minute Timer</strong> — The checkout page shows a countdown. You must upload your payment slip <strong>within 5 minutes</strong> of the transfer for automatic AI verification. The timer turns amber at 2 minutes and red at 1 minute remaining.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 3: SLIP & CONFIRMATION -->
+<div class="page">
+  <div class="section-header">
+    <div class="section-icon">🧾</div>
+    <div>
+      <h2>2. Booking a Court (continued)</h2>
+      <div class="section-desc">Uploading your slip and receiving confirmation</div>
+    </div>
+  </div>
+
+  <h3>2.4 Uploading Your Payment Slip</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-body">Tap the <strong>📎 Upload Slip</strong> area on the checkout page.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Select the screenshot from your photo gallery or camera. Accepted formats: <code>JPG</code>, <code>PNG</code>, <code>WebP</code>.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Preview the image — make sure the <strong>amount</strong>, <strong>date</strong>, and <strong>transfer status (โอนสำเร็จ)</strong> are clearly visible.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Tap <strong>✓ Verify &amp; Confirm Booking</strong>.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Wait a few seconds while the AI checks your slip. The button shows a progress spinner.</div></div>
+  </div>
+
+  <div class="callout tip">
+    <div class="callout-icon">💡</div>
+    <div class="callout-body"><strong>What if the timer expired before I could upload?</strong> The button changes to <strong>📋 Submit for Manual Review</strong>. You can still upload your slip — the booking will be held as pending and confirmed by staff once they review it.</div>
+  </div>
+
+  <h3>2.5 Booking Confirmation</h3>
+  <p>If the AI successfully verifies your slip, you are taken to the <strong>Booking Confirmation</strong> page showing:</p>
+  <ul>
+    <li>✅ "Booking Confirmed!" banner</li>
+    <li>Booking reference number (e.g. <code>A1B2C3D4</code>)</li>
+    <li>Venue, court, date, and time</li>
+    <li>Total paid</li>
+    <li>Link to view your full booking group (if multiple slots)</li>
+  </ul>
+
+  <div class="flow">
+    <div class="flow-box">Select Slots</div><div class="flow-arrow">→</div>
+    <div class="flow-box">Scan QR &amp; Pay</div><div class="flow-arrow">→</div>
+    <div class="flow-box">Upload Slip</div><div class="flow-arrow">→</div>
+    <div class="flow-box">AI Verifies</div><div class="flow-arrow">→</div>
+    <div class="flow-box">✅ Confirmed</div>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-icon">⚠️</div>
+    <div class="callout-body"><strong>Slip rejected?</strong> The AI checks that the amount matches, the slip shows today's date, and the transfer is complete (not pending). Common reasons for rejection:
+      <ul style="margin-top:6px;">
+        <li>Wrong transfer amount</li>
+        <li>Slip shows "pending" status instead of "success / โอนสำเร็จ"</li>
+        <li>Slip is from a previous day</li>
+        <li>Image is blurry or cropped</li>
+      </ul>
+    Upload a clear, complete slip and try again. If it keeps failing, contact venue staff.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 4: DASHBOARD -->
+<div class="page">
+  <div class="section-header">
+    <div class="section-icon">📊</div>
+    <div>
+      <h2>3. My Bookings Dashboard</h2>
+      <div class="section-desc">Track and manage all your reservations</div>
+    </div>
+  </div>
+
+  <h3>3.1 Viewing Upcoming Bookings</h3>
+  <p>Access your dashboard by clicking <strong>My Bookings</strong> in the navigation bar. The page is divided into two sections:</p>
+  <ul>
+    <li><strong>Upcoming</strong> — bookings from today onwards (excludes cancelled)</li>
+    <li><strong>Past Bookings</strong> — historical records (last 20 entries)</li>
+  </ul>
+  <p>Each row shows the court name, venue, date/time span, total price, and current status. Click any row to open the full booking detail page.</p>
+
+  <h3>3.2 Booking Status Guide</h3>
+  <table>
+    <thead><tr><th>Status</th><th>Meaning</th><th>Next Action</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-green">confirmed</span></td>
+        <td>Payment verified. Slot is reserved for you.</td>
+        <td>Show up and play! 🏸</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-amber">pending</span></td>
+        <td>Slip submitted, awaiting verification (AI or manual).</td>
+        <td>Wait for staff confirmation. Usually instant.</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-red">cancelled</span></td>
+        <td>Booking was cancelled by staff or the system.</td>
+        <td>Contact the venue if this was unexpected.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>3.3 Group Bookings</h3>
+  <p>When you book multiple slots (different courts or consecutive times) in one transaction, they form a <strong>Group Booking</strong>. On the dashboard they appear as a single row with a <span class="badge badge-blue">X slots</span> badge.</p>
+  <p>Click the row to open the Group Booking page, which shows all individual slots, each court's subtotal, and the grand total. From there you can also click <strong>+ Add More Slots</strong> to append additional courts to the same group.</p>
+
+  <div class="callout info">
+    <div class="callout-icon">ℹ️</div>
+    <div class="callout-body"><strong>One payment for the whole group</strong> — When you pay for a group booking, a single slip covers all slots. The AI checks the total amount against the combined price of all selected slots.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 5: ADMIN OVERVIEW -->
+<div class="page">
+  <div class="section-header">
+    <div class="section-icon">🛡️</div>
+    <div>
+      <h2>4. Admin Panel — Overview</h2>
+      <div class="section-desc">For venue owners and system administrators</div>
+    </div>
+  </div>
+
+  <h3>4.1 Accessing the Admin Panel</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-body">Log in with your admin account credentials.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Navigate to <code>/admin</code> (e.g. <code>https://yoursite.com/admin</code>) or click the <strong>Admin</strong> link in the navigation menu.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">If access is denied, your account does not have an admin role. Contact a system administrator.</div></div>
+  </div>
+
+  <div class="callout danger">
+    <div class="callout-icon">🔒</div>
+    <div class="callout-body"><strong>Security notice</strong> — The admin panel is protected by role-based access. Admin roles are assigned directly in the database by a system administrator and cannot be self-assigned.</div>
+  </div>
+
+  <h3>4.2 Admin Roles</h3>
+  <table>
+    <thead><tr><th>Role</th><th>Access Level</th><th>Scope</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-red">System Admin</span></td>
+        <td>Full access to everything</td>
+        <td>All venues, all bookings, all payments</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-blue">Venue Admin</span></td>
+        <td>Venue-scoped access</td>
+        <td>Only bookings &amp; payments for assigned venues</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Venue admins see exactly the same admin interface but all data is automatically filtered to their assigned venue(s). They cannot see bookings from other venues.</p>
+
+  <h3>4.3 Dashboard Overview</h3>
+  <p>The admin dashboard (<code>/admin</code>) shows at-a-glance statistics:</p>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">📅</div>
+      <h4>Today's Bookings</h4>
+      <p>Total number of bookings for the current day across all (assigned) courts.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">💰</div>
+      <h4>Revenue</h4>
+      <p>Total confirmed revenue for the current month.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">⏳</div>
+      <h4>Pending Payments</h4>
+      <p>Number of PromptPay slips awaiting review. Click to jump to the queue.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🏟️</div>
+      <h4>Active Courts</h4>
+      <p>Count of courts currently set as active and accepting bookings.</p>
+    </div>
+  </div>
+
+  <p>The left sidebar provides quick navigation to all admin sections: <strong>Bookings</strong>, <strong>Pending Payments</strong>, <strong>Venues</strong>, <strong>Courts</strong>, and <strong>Schedule</strong>.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 6: VENUES & COURTS -->
+<div class="page">
+  <div class="section-header">
+    <div class="section-icon">🏟️</div>
+    <div>
+      <h2>5. Managing Venues &amp; Courts</h2>
+      <div class="section-desc">Set up your facilities, pricing, and operating hours</div>
+    </div>
+  </div>
+
+  <h3>5.1 Adding a Venue</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-body">Go to <strong>Admin → Venues</strong> and click <strong>+ New Venue</strong>.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Fill in the <strong>Venue Name</strong>, <strong>Address</strong>, and optional <strong>Description</strong>.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Enter your <strong>PromptPay ID</strong> (phone number or 13-digit national ID). This generates QR codes for customer payments.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Set the <strong>Platform Fee Rate</strong> (default 5%). This is the percentage deducted from each booking as a service fee.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Toggle <strong>Active</strong> to make the venue visible to customers.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Click <strong>Save Venue</strong>.</div></div>
+  </div>
+
+  <h3>5.2 Adding Courts</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-body">Go to <strong>Admin → Courts</strong> and click <strong>+ New Court</strong>.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Select the <strong>Venue</strong> this court belongs to.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Enter a <strong>Court Name</strong> (e.g. "Court A", "Main Hall").</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Set the <strong>Hourly Rate (฿)</strong> — this is the base off-peak rate.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Toggle <strong>Active</strong> and click <strong>Save Court</strong>.</div></div>
+  </div>
+
+  <h3>5.3 Setting Operating Hours</h3>
+  <p>Go to <strong>Admin → Schedule</strong>. Select a court and configure its hours per day of the week.</p>
+  <table>
+    <thead><tr><th>Field</th><th>Description</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td>Open Time</td><td>First slot starts at this time</td><td><code>08:00</code></td></tr>
+      <tr><td>Close Time</td><td>Last slot ends at this time</td><td><code>22:00</code></td></tr>
+      <tr><td>Slot Duration</td><td>Length of each booking slot (minutes)</td><td><code>60</code></td></tr>
+    </tbody>
+  </table>
+  <p>Days without an entry in the schedule are treated as <strong>closed</strong> — no slots are generated and the court appears as unavailable.</p>
+
+  <h3>5.4 Peak Pricing</h3>
+  <p>Each day's schedule can have an optional <strong>peak window</strong>. During peak hours a higher rate applies automatically.</p>
+  <table>
+    <thead><tr><th>Field</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>Peak Start / End</td><td>Time range when peak pricing applies (e.g. 17:00 – 21:00)</td></tr>
+      <tr><td>Peak Hourly Rate (฿)</td><td>Higher price per hour during the peak window</td></tr>
+    </tbody>
+  </table>
+  <div class="callout tip">
+    <div class="callout-icon">💡</div>
+    <div class="callout-body">Slots that overlap the peak boundary are split automatically — the customer pays the correct prorated amount for each portion.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 7: MANAGING BOOKINGS -->
+<div class="page">
+  <div class="section-header">
+    <div class="section-icon">📋</div>
+    <div>
+      <h2>6. Managing Bookings</h2>
+      <div class="section-desc">View, filter, walk-in book, and cancel reservations</div>
+    </div>
+  </div>
+
+  <h3>6.1 Viewing All Bookings</h3>
+  <p>Go to <strong>Admin → Bookings</strong>. The table shows all bookings with these columns:</p>
+  <table>
+    <thead><tr><th>Column</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Ref</strong></td><td>First 8 characters of the booking ID</td></tr>
+      <tr><td><strong>Customer</strong></td><td>Full name and phone number from their profile</td></tr>
+      <tr><td><strong>Court / Venue</strong></td><td>Which court and venue the booking is for</td></tr>
+      <tr><td><strong>Date &amp; Time</strong></td><td>Booking date and slot time range</td></tr>
+      <tr><td><strong>Total</strong></td><td>Amount charged for this slot</td></tr>
+      <tr><td><strong>Status</strong></td><td>confirmed / pending / cancelled</td></tr>
+      <tr><td><strong>Slip</strong></td><td>🧾 Slip button — click to view the payment image in a popup</td></tr>
+      <tr><td><strong>Action</strong></td><td>Cancel button (for non-cancelled bookings)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>6.2 Filtering &amp; Searching</h3>
+  <p>Use the filter bar above the table to narrow down results:</p>
+  <ul>
+    <li><strong>Status</strong> — filter by confirmed, pending, cancelled, or all</li>
+    <li><strong>Date</strong> — show bookings for a specific date only</li>
+  </ul>
+  <p>The table loads the latest 100 bookings by default, ordered newest first.</p>
+
+  <h3>6.3 Walk-in Bookings</h3>
+  <p>Walk-in bookings are for customers who pay cash on-site. They are created directly by staff and confirmed immediately — no payment slip required.</p>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-body">Click <strong>🚶 Walk-in Booking</strong> at the top of the Bookings page.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Select the <strong>venue</strong>, <strong>court</strong>, and <strong>date</strong>.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Available time slots are loaded automatically. Select one or more.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Optionally enter <strong>customer name</strong> and <strong>phone</strong> for your records.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Click <strong>Confirm Walk-in</strong>. The booking is immediately set to <span class="badge badge-green">confirmed</span> with payment method "Cash".</div></div>
+  </div>
+
+  <h3>6.4 Cancelling a Booking</h3>
+  <div class="callout danger">
+    <div class="callout-icon">⚠️</div>
+    <div class="callout-body"><strong>Cancellations are permanent.</strong> Once a booking is cancelled it cannot be restored. The slot becomes available for other customers immediately.</div>
+  </div>
+  <p>To cancel: click the <strong>Cancel</strong> link in the Action column and confirm the dialog prompt. Cancelled bookings remain visible in the table with a <span class="badge badge-red">cancelled</span> badge for record-keeping.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 8: PAYMENT MANAGEMENT -->
+<div class="page">
+  <div class="section-header">
+    <div class="section-icon">💳</div>
+    <div>
+      <h2>7. Payment Management</h2>
+      <div class="section-desc">Review PromptPay slips, approve payments, and use AI verification</div>
+    </div>
+  </div>
+
+  <h3>7.1 Pending Payments Queue</h3>
+  <p>Go to <strong>Admin → Pending Payments</strong>. This page shows all bookings that:</p>
+  <ul>
+    <li>Used <strong>PromptPay</strong> as the payment method</li>
+    <li>Have a <span class="badge badge-amber">pending</span> payment status</li>
+  </ul>
+  <p>Each card shows the payment slip image (if uploaded), customer details, court, date/time, and amount. Cards are ordered newest first.</p>
+
+  <div class="callout info">
+    <div class="callout-icon">ℹ️</div>
+    <div class="callout-body"><strong>Auto-cleared</strong> — Most slips are verified automatically by AI within seconds of submission. Only slips that failed AI verification (or were submitted after the timer expired) appear in this queue.</div>
+  </div>
+
+  <h3>7.2 Approving a Slip Manually</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-body">Click the slip image to open it full size. Verify that the amount, date, and transfer status are correct.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Click <strong>✓ Approve</strong> to confirm the payment. The booking status changes to <span class="badge badge-green">confirmed</span> and the customer's slot is secured.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Alternatively, click <strong>✕ Reject</strong> if the slip is invalid (wrong amount, fake, or from a different transaction). The booking stays as pending for re-submission or manual follow-up.</div></div>
+  </div>
+
+  <h3>7.3 AI Re-verification</h3>
+  <p>If a slip looks valid but was rejected automatically, use the <strong>🤖 Re-verify AI</strong> button to run a second AI check.</p>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-body">Click <strong>🤖 Re-verify AI</strong> on the pending payment card.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">Wait a few seconds while the AI analyses the slip image.</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-body">The result appears inline:
+      <br>✓ <strong>AI approved</strong> — booking is automatically confirmed.
+      <br>✕ <strong>AI rejected</strong> — reason is shown; you can still approve manually.
+    </div></div>
+  </div>
+
+  <div class="callout tip">
+    <div class="callout-icon">💡</div>
+    <div class="callout-body"><strong>Admin re-verify vs customer verify:</strong> The admin AI check does NOT enforce the 5-minute time window — it only checks the date (today) and the correct amount. This allows reviewing slips that were submitted hours earlier.</div>
+  </div>
+
+  <h3>7.4 Viewing Slips in Bookings Table</h3>
+  <p>The main <strong>Bookings</strong> table also has a <strong>Slip</strong> column. Click the <strong>🧾 Slip</strong> button on any row to open a popup showing the payment image. This works for both pending and confirmed bookings, making it easy to audit historical payments without leaving the bookings page.</p>
+
+  <div class="callout tip">
+    <div class="callout-icon">💡</div>
+    <div class="callout-body">Click <strong>↗ Open full size</strong> in the slip popup to view the original high-resolution image in a new tab.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 9: TROUBLESHOOTING -->
+<div class="page">
+  <div class="section-header">
+    <div class="section-icon">🔧</div>
+    <div>
+      <h2>8. Troubleshooting</h2>
+      <div class="section-desc">Common issues and how to resolve them</div>
+    </div>
+  </div>
+
+  <h3>8.1 Customer Issues</h3>
+  <table>
+    <thead><tr><th>Problem</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Cannot log in</td>
+        <td>Wrong password or email</td>
+        <td>Use "Forgot Password?" link on the login page</td>
+      </tr>
+      <tr>
+        <td>Slot I want is greyed out</td>
+        <td>Already booked by another customer</td>
+        <td>Choose a different time slot or date</td>
+      </tr>
+      <tr>
+        <td>QR code doesn't scan</td>
+        <td>PromptPay ID not configured for this venue</td>
+        <td>Enter the PromptPay number manually in your banking app</td>
+      </tr>
+      <tr>
+        <td>Slip rejected — wrong amount</td>
+        <td>Transferred a different sum</td>
+        <td>Transfer the exact amount shown. Contact staff if already transferred.</td>
+      </tr>
+      <tr>
+        <td>Slip rejected — pending status</td>
+        <td>Screenshot taken before transfer completed</td>
+        <td>Wait for the transfer to complete (โอนสำเร็จ) then screenshot again</td>
+      </tr>
+      <tr>
+        <td>Timer expired before upload</td>
+        <td>Took longer than 5 minutes</td>
+        <td>Upload anyway — click "Submit for Manual Review". Staff will confirm.</td>
+      </tr>
+      <tr>
+        <td>Booking stuck at "pending"</td>
+        <td>AI could not process slip / submitted after timer</td>
+        <td>Wait for staff to review, or contact the venue directly</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>8.2 Admin Issues</h3>
+  <table>
+    <thead><tr><th>Problem</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Access denied to /admin</td>
+        <td>Account role is not admin or venue_admin</td>
+        <td>Ask a system admin to set the correct role in the database</td>
+      </tr>
+      <tr>
+        <td>Walk-in form shows no courts</td>
+        <td>No courts assigned to your venue</td>
+        <td>Add courts in Admin → Courts, then assign them to your venue</td>
+      </tr>
+      <tr>
+        <td>No slots appear in walk-in</td>
+        <td>Operating hours not set for that day</td>
+        <td>Configure schedule in Admin → Schedule for the selected court &amp; day</td>
+      </tr>
+      <tr>
+        <td>Slip shows "No slip image stored"</td>
+        <td>Customer submitted slip but upload failed</td>
+        <td>Ask customer to re-submit. Check storage bucket settings.</td>
+      </tr>
+      <tr>
+        <td>Pending payments queue is empty but bookings are pending</td>
+        <td>Pending bookings used cash (not PromptPay)</td>
+        <td>Walk-in cash bookings don't appear in the payments queue — they're already confirmed</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>8.3 Payment Verification Issues</h3>
+  <table>
+    <thead><tr><th>Problem</th><th>Cause</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>🤖 Re-verify AI returns error</td>
+        <td>Gemini API key not configured or quota exceeded</td>
+        <td>Visit <code>/api/admin/test-gemini</code> to diagnose. Approve manually.</td>
+      </tr>
+      <tr>
+        <td>AI always says "slip older than 5 minutes"</td>
+        <td>Using old customer verify endpoint, not admin endpoint</td>
+        <td>Use the 🤖 Re-verify AI button — admin endpoint has no time window</td>
+      </tr>
+      <tr>
+        <td>Correct slip rejected by AI</td>
+        <td>Image quality, unusual bank app format, or Buddhist Era date</td>
+        <td>Click ✓ Approve manually. The AI is advisory, not mandatory.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 10: REFERENCE -->
+<div class="page">
+  <div class="section-header">
+    <div class="section-icon">📖</div>
+    <div>
+      <h2>9. Reference</h2>
+      <div class="section-desc">Status codes, roles, and quick-reference information</div>
+    </div>
+  </div>
+
+  <h3>Booking Status Reference</h3>
+  <table>
+    <thead><tr><th>Status</th><th>Payment Status</th><th>Meaning</th><th>Who Sees</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-green">confirmed</span></td>
+        <td><span class="badge badge-green">paid</span></td>
+        <td>Slot reserved, payment verified</td>
+        <td>Customer &amp; Admin</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-amber">pending</span></td>
+        <td><span class="badge badge-amber">pending</span></td>
+        <td>Slip submitted, awaiting AI or manual review</td>
+        <td>Customer (read) &amp; Admin (action)</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-green">confirmed</span></td>
+        <td><span class="badge badge-green">paid</span></td>
+        <td>Walk-in cash booking, confirmed at creation</td>
+        <td>Admin only</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-red">cancelled</span></td>
+        <td>any</td>
+        <td>Booking cancelled by admin</td>
+        <td>Customer &amp; Admin</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Payment Methods</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Icon</th><th>Flow</th><th>Confirmation</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>PromptPay</td>
+        <td>📱</td>
+        <td>Customer scans QR → transfers → uploads slip → AI verifies</td>
+        <td>Automatic (AI) or manual</td>
+      </tr>
+      <tr>
+        <td>Cash</td>
+        <td>💵</td>
+        <td>Staff creates walk-in booking</td>
+        <td>Immediate, no slip needed</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Admin Navigation Quick Reference</h3>
+  <table>
+    <thead><tr><th>URL</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>/admin</code></td><td>Dashboard with stats overview</td></tr>
+      <tr><td><code>/admin/bookings</code></td><td>All bookings table with filters</td></tr>
+      <tr><td><code>/admin/bookings/walkin</code></td><td>Create a cash walk-in booking</td></tr>
+      <tr><td><code>/admin/payments</code></td><td>Pending PromptPay slip review queue</td></tr>
+      <tr><td><code>/admin/venues</code></td><td>Manage venues (add / edit / deactivate)</td></tr>
+      <tr><td><code>/admin/courts</code></td><td>Manage courts within venues</td></tr>
+      <tr><td><code>/admin/schedule</code></td><td>Set operating hours &amp; peak pricing per court</td></tr>
+      <tr><td><code>/api/admin/test-gemini</code></td><td>Diagnostic: check AI API key &amp; model status</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Supported Payment Slip Formats</h3>
+  <table>
+    <thead><tr><th>Requirement</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td>File type</td><td>JPG, PNG, or WebP</td></tr>
+      <tr><td>Max file size</td><td>~4.5 MB (base64 limit: 6 MB)</td></tr>
+      <tr><td>Must show</td><td>โอนสำเร็จ (success), correct amount, today's date</td></tr>
+      <tr><td>Date format</td><td>Thai Buddhist Era (e.g. 10/05/68) or Gregorian — both accepted</td></tr>
+      <tr><td>Time window (customer)</td><td>Transfer must be within last 5 minutes</td></tr>
+      <tr><td>Time window (admin reverify)</td><td>No time window — only today's date is checked</td></tr>
+    </tbody>
+  </table>
+
+  <hr>
+
+  <div style="text-align:center; margin-top: 32px; color: var(--gray-400); font-size: 9pt;">
+    <div style="font-size: 28px; margin-bottom: 8px;">🏸</div>
+    <strong style="color: var(--gray-600);">CourtBook</strong><br>
+    Badminton Court Booking System — User Manual v1.0<br>
+    For support, contact your venue administrator.
+  </div>
+</div>
+
+
+
+</body></html>

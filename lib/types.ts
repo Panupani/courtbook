@@ -1,5 +1,11 @@
 export type UserRole = 'customer' | 'admin' | 'venue_admin'
 
+export interface Zone {
+  id: string
+  name: string
+  created_at: string
+}
+
 export interface Profile {
   id: string
   full_name: string
@@ -17,6 +23,8 @@ export interface Venue {
   promptpay_id: string | null
   platform_fee_rate: number   // e.g. 0.05 = 5%
   is_active: boolean
+  zone_id: string | null
+  zone?: Zone
   created_at: string
 }
 

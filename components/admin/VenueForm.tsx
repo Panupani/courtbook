@@ -3,13 +3,14 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { Venue } from '@/lib/types'
+import type { Venue, Zone } from '@/lib/types'
 
 interface Props {
   venue?: Partial<Venue>
+  zones?: Zone[]
 }
 
-export default function VenueForm({ venue }: Props) {
+export default function VenueForm({ venue, zones = [] }: Props) {
   const isEdit = Boolean(venue?.id)
   const router = useRouter()
   const supabase = createClient()
@@ -20,6 +21,7 @@ export default function VenueForm({ venue }: Props) {
   const [imageUrl, setImageUrl] = useState(venue?.image_url ?? '')
   const [promptpayId, setPromptpayId] = useState(venue?.promptpay_id ?? '')
   const [feeRate, setFeeRate] = useState<number>((venue?.platform_fee_rate ?? 0.05) * 100)
+  const [zoneId, setZoneId]   = useState(venue?.zone_id ?? '')
   const [isActive, setIsActive] = useState(venue?.is_active ?? true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -36,6 +38,7 @@ export default function VenueForm({ venue }: Props) {
       image_url: imageUrl || null,
       promptpay_id: promptpayId || null,
       platform_fee_rate: Math.round(feeRate) / 100,
+      zone_id: zoneId || null,
       is_active: isActive,
     }
 
@@ -70,6 +73,23 @@ export default function VenueForm({ venue }: Props) {
           className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
           placeholder="123 Sport Ave, Bangkok" />
       </div>
+
+      {zones.length > 0 && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Location Zone</label>
+          <select
+            value={zoneId}
+            onChange={e => setZoneId(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            <option value="">— No zone —</option>
+            {zones.map(z => (
+              <option key={z.id} value={z.id}>{z.name}</option>
+            ))}
+          </select>
+          <p className="text-[10px] text-gray-400 mt-1">Customers can filter venues by zone on the browsing page.</p>
+        </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
