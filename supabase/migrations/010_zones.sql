@@ -16,12 +16,16 @@ ALTER TABLE venues
 -- RLS
 ALTER TABLE zones ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "zones: public read"  ON zones;
-CREATE POLICY "zones: public read"
-  ON zones FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "zones: admin write"  ON zones;
-CREATE POLICY "zones: admin write"
-  ON zones FOR ALL
-  USING (public.is_admin())
-  WITH CHECK (public.is_admin());
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'zones' AND policyname = 'zones: public read'
+  ) THEN
+    CREATE POLICY "zones: public read" ON zones FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'zones' AND policyname = 'zones: admin write'
+  ) THEN
+    CREATE POLICY "zones: admin write" ON zones FOR ALL
+      USING (public.is_admin()) WITH CHECK (public.is_admin());
+  END IF;
+END $$;
